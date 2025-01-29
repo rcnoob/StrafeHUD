@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
@@ -95,6 +96,11 @@ public class StrafeHUD : BasePlugin
         {
             try
             {
+                var moveLeft = getMovementButton.Contains("Left");
+                var moveRight = getMovementButton.Contains("Right");
+                var sideMove = baseCmd.SideMove;
+                var forwardMove = baseCmd.ForwardMove;
+                
                 PlayerFlags flags = (PlayerFlags)player.Pawn.Value!.Flags;
                 Globals.playerStats[player.Slot].LastButtons = Globals.playerStats[player.Slot].Buttons;
                 Globals.playerStats[player.Slot].Buttons = player.Buttons;
@@ -103,10 +109,10 @@ public class StrafeHUD : BasePlugin
                 Globals.playerStats[player.Slot].Flags = flags;
                 
                 Globals.playerStats[player.Slot].LastSideMove = Globals.playerStats[player.Slot].SideMove;
-                Globals.playerStats[player.Slot].SideMove = baseCmd.GetSideMove();
+                Globals.playerStats[player.Slot].SideMove = sideMove;
                 
                 Globals.playerStats[player.Slot].LastForwardMove = Globals.playerStats[player.Slot].ForwardMove;
-                Globals.playerStats[player.Slot].ForwardMove = baseCmd.GetForwardMove();
+                Globals.playerStats[player.Slot].ForwardMove = forwardMove;
                 
                 Globals.playerStats[player.Slot].LastPosition = new Vector(
                     Globals.playerStats[player.Slot].Position.X,
@@ -179,7 +185,7 @@ public class StrafeHUD : BasePlugin
 
                 if (Globals.playerStats[player.Slot].TrackingJump)
                 {
-                    TrackJump(player);
+                    TrackJump(player, moveLeft, moveRight);
                 }
 
                 Globals.playerStats[player.Slot].TickCount++;
@@ -194,7 +200,7 @@ public class StrafeHUD : BasePlugin
         return HookResult.Continue;
     }
 
-    public void TrackJump(CCSPlayerController? player)
+    public void TrackJump(CCSPlayerController? player, bool moveLeft, bool moveRight)
     {
         if (Globals.playerStats[player!.Slot].FramesOnGround > 16)
         {
@@ -284,39 +290,35 @@ public class StrafeHUD : BasePlugin
                 bool velRight = Utils.IsWishspeedMovingRight(Globals.playerStats[player!.Slot].SideMove);
                 bool velIsZero = !velLeft && !velRight;
 
-                if ((player.Buttons & PlayerButtons.Moveleft) != 0 && (player.Buttons & PlayerButtons.Moveright) == 0 && velRight)
+                if (moveLeft && !moveRight && (velLeft || velRight))
                 {
                     strafeType = StrafeType.LEFT;
                 }
-                else if ((player.Buttons & PlayerButtons.Moveright) != 0 && (player.Buttons & PlayerButtons.Moveleft) == 0 && velRight)
+                else if (moveRight && !moveLeft && (velLeft || velRight))
                 {
                     strafeType = StrafeType.RIGHT;
                 }
-                else if ((player.Buttons & PlayerButtons.Moveright) != 0 && (player.Buttons & PlayerButtons.Moveleft) == 0 && velRight)
-                {
-                    strafeType = StrafeType.LEFT;
-                }
-                else if ((player.Buttons & PlayerButtons.Moveright) != 0 && (player.Buttons & PlayerButtons.Moveleft) != 0 && velIsZero)
+                else if (moveRight && moveLeft && velIsZero)
                 {
                     strafeType = StrafeType.OVERLAP;
                 }
-                else if ((player.Buttons & PlayerButtons.Moveright) != 0 && (player.Buttons & PlayerButtons.Moveleft) != 0 && velLeft)
+                else if (moveRight && moveLeft && velLeft)
                 {
                     strafeType = StrafeType.OVERLAP_LEFT;
                 }
-                else if ((player.Buttons & PlayerButtons.Moveright) != 0 && (player.Buttons & PlayerButtons.Moveleft) != 0 && velRight)
+                else if (moveRight && moveLeft && velRight)
                 {
                     strafeType = StrafeType.OVERLAP_RIGHT;
                 }
-                else if ((player.Buttons & PlayerButtons.Moveright) == 0 && (player.Buttons & PlayerButtons.Moveleft) == 0 && velIsZero)
+                else if (!moveRight && !moveLeft && velIsZero)
                 {
                     strafeType = StrafeType.NONE;
                 }
-                else if ((player.Buttons & PlayerButtons.Moveright) == 0 && (player.Buttons & PlayerButtons.Moveleft) == 0 && velLeft)
+                else if (!moveRight && !moveLeft && velLeft)
                 {
                     strafeType = StrafeType.NONE_LEFT;
                 }
-                else if ((player.Buttons & PlayerButtons.Moveright) == 0 && (player.Buttons & PlayerButtons.Moveleft) == 0 && velRight)
+                else if (!moveRight && !moveLeft && velRight)
                 {
                     strafeType = StrafeType.NONE_RIGHT;
                 }
@@ -626,6 +628,11 @@ public class StrafeHUD : BasePlugin
         int mlIndex = 0;
         char[] mouseRight = new char[512];
         int mrIndex = 0;
+        
+        StringBuilder strafeLeftBuilder = new StringBuilder();
+        StringBuilder strafeRightBuilder = new StringBuilder();
+        StringBuilder mouseLeftBuilder = new StringBuilder();
+        StringBuilder mouseRightBuilder = new StringBuilder();
 
         string[] mouseColours =
         [
@@ -639,44 +646,51 @@ public class StrafeHUD : BasePlugin
         int lastMouseIndex = 9999;
         for (int i = 0; i < Globals.playerStats[player.Slot].JumpAirtime && i < 150; i++)
         {
-            StrafeType strafeTypeLeft = Globals.playerStats[player.Slot].StrafeGraph[i];
-            StrafeType strafeTypeRight = Globals.playerStats[player.Slot].StrafeGraph[i];
+            StrafeType strafeType = Globals.playerStats[player.Slot].StrafeGraph[i];
 
-            if (strafeTypeLeft == StrafeType.RIGHT || strafeTypeLeft == StrafeType.NONE_RIGHT ||
+            StrafeType strafeTypeLeft = strafeType;
+            if (strafeTypeLeft == StrafeType.RIGHT || 
+                strafeTypeLeft == StrafeType.NONE_RIGHT ||
                 strafeTypeLeft == StrafeType.OVERLAP_RIGHT)
             {
                 strafeTypeLeft = StrafeType.NONE;
             }
             
-            if (strafeTypeRight == StrafeType.LEFT || strafeTypeRight == StrafeType.NONE_LEFT ||
+            StrafeType strafeTypeRight = strafeType;
+            if (strafeTypeRight == StrafeType.LEFT || 
+                strafeTypeRight == StrafeType.NONE_LEFT ||
                 strafeTypeRight == StrafeType.OVERLAP_LEFT)
             {
                 strafeTypeRight = StrafeType.NONE;
             }
+            else if (strafeTypeRight == StrafeType.RIGHT)
+            {
+                strafeTypeRight = StrafeType.RIGHT;
+            }
             
-            strafeLeft[slIndex] = StrafeChars[(int)strafeTypeLeft];
+            strafeLeftBuilder.Append(StrafeChars[(int)strafeTypeLeft]);
             slIndex++;
             
-            strafeRight[srIndex] = StrafeChars[(int)strafeTypeRight];
+            strafeRightBuilder.Append(StrafeChars[(int)strafeTypeRight]);
             srIndex++;
             
             char mouseChar = '█';
             if (Globals.playerStats[player.Slot].MouseGraph[i] == 0)
             {
-                mouseLeft[mlIndex++] = '.';
-                mouseRight[mrIndex++] = '.';
+                mouseLeftBuilder.Append('.');
+                mouseRightBuilder.Append('.');
             }
             else if (Globals.playerStats[player.Slot].MouseGraph[i] < 0)
             {
-                mouseLeft[mlIndex++] = '.';
+                mouseLeftBuilder.Append('.');
                 mrIndex += 1;
-                mouseRight[mrIndex] = mouseChar;
+                mouseRightBuilder.Append(mouseChar);
             }
             else if (Globals.playerStats[player.Slot].MouseGraph[i] > 0)
             {
                 mlIndex += 1;
-                mouseLeft[mlIndex] = mouseChar;
-                mouseRight[mlIndex++] = '.';
+                mouseLeftBuilder.Append(mouseChar);
+                mouseRightBuilder.Append('.');
             }
 
             int mouseIndex = (int)Utils.FloatSign(Globals.playerStats[player.Slot].MouseGraph[i]) + 1;
@@ -684,22 +698,27 @@ public class StrafeHUD : BasePlugin
             lastStrafeTypeLeft = strafeTypeLeft;
             lastStrafeTypeRight = strafeTypeRight;
             lastMouseIndex = mouseIndex;
+            
+            Logger.LogInformation($"Left: {slIndex} | {strafeLeftBuilder}");
+            Logger.LogInformation($"Right: {srIndex} | {strafeRightBuilder}");
         }
-
-        string strafeLeftStr = new string(strafeLeft).Trim('\0');
-        string strafeRightStr = new string(strafeRight).Trim('\0');
-        string mouseLeftStr = new string(mouseLeft).Trim('\0');
-        string mouseRightStr = new string(mouseRight).Trim('\0');
-
-        Server.NextFrame(() => player.PrintToChat("\nStrafe keys:"));
-        Server.NextFrame(() => player.PrintToChat($"L: {strafeLeftStr}"));
-        Server.NextFrame(() => player.PrintToChat($"R: {strafeRightStr}"));
-        Server.NextFrame(() => player.PrintToChat("\nMouse movement:"));
-        Server.NextFrame(() => player.PrintToChat($"L: {mouseLeftStr}"));
-        Server.NextFrame(() => player.PrintToChat($"R: {mouseRightStr}"));
     }
     
-    public static char[] StrafeChars =
+    public enum StrafeType
+    {
+        OVERLAP,           // A + D are pressed and sidemove is 0
+        NONE,              // A + D are not pressed and sidemove is 0
+    
+        LEFT,              // only A is pressed and sidemove isnt 0
+        OVERLAP_LEFT,      // A + D are pressed, but sidemove is smaller than 0
+        NONE_LEFT,         // A + D are not pressed and sidemove is smaller than 0
+    
+        RIGHT,             // only D is pressed and sidemove isnt 0
+        OVERLAP_RIGHT,     // A + D are pressed, but sidemove is more than 0
+        NONE_RIGHT         // A + D are not pressed and sidemove is more than 0
+    }
+    
+    public char[] StrafeChars =
     [
         '$', // STRAFETYPE_OVERLAP
         '.', // STRAFETYPE_NONE

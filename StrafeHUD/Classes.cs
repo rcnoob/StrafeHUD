@@ -4,20 +4,6 @@ using CounterStrikeSharp.API.Modules.Utils;
 
 namespace StrafeHUD;
 
-public enum StrafeType
-{
-    OVERLAP,           // A + D are pressed and sidemove is 0
-    NONE,              // A + D are not pressed and sidemove is 0
-    
-    LEFT,              // only A is pressed and sidemove isnt 0
-    OVERLAP_LEFT,      // A + D are pressed, but sidemove is smaller than 0
-    NONE_LEFT,         // A + D are not pressed and sidemove is smaller than 0
-    
-    RIGHT,             // only D is pressed and sidemove isnt 0
-    OVERLAP_RIGHT,     // A + D are pressed, but sidemove is more than 0
-    NONE_RIGHT         // A + D are not pressed and sidemove is more than 0
-}
-
 public class PlayerStats
 { 
     public CCSPlayer_MovementServices? MovementService { get; set; }
@@ -87,6 +73,6 @@ public class PlayerStats
     public int[] StrafeAvgEfficiencyCount { get; set; } = new int[32];
     public float[] StrafeMaxEfficiency { get; set; } = new float[32];
     
-    public StrafeType[] StrafeGraph { get; set; } = new StrafeType[32];
+    public StrafeHUD.StrafeType[] StrafeGraph { get; set; } = new StrafeHUD.StrafeType[32];
     public float[] MouseGraph { get; set; } = new float[32];
 }
