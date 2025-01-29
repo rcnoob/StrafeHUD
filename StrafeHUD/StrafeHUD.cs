@@ -615,10 +615,10 @@ public class StrafeHUD : BasePlugin
 
         // printing
         string consoleStats =
-            $"\n[RC] {(Globals.playerStats[player.Slot].FailedJump ? "FAILED " : "")}LJ: {Globals.playerStats[player.Slot].JumpDistance} [{block}{(hasBlock ? " | " : "")}{edge}{(hasEdge ? " | " : "")}Veer: {Globals.playerStats[player.Slot].JumpVeer} | {fwdRelease} | Sync: {Globals.playerStats[player.Slot].JumpSync} | Max: {Globals.playerStats[player.Slot].JumpMaxspeed}]\n" +
+            $"\n[GCRC] {(Globals.playerStats[player.Slot].FailedJump ? "FAILED " : "")}LJ: {Globals.playerStats[player.Slot].JumpDistance} [{block}{(hasBlock ? " | " : "")}{edge}{(hasEdge ? " | " : "")}Veer: {Globals.playerStats[player.Slot].JumpVeer} | {fwdRelease} | Sync: {Globals.playerStats[player.Slot].JumpSync} | Max: {Globals.playerStats[player.Slot].JumpMaxspeed}]\n" +
             $"[{landEdge}{(hasLandEdge ? " | " : "")}Pre: {Globals.playerStats[player.Slot].JumpPrespeed} | OL/DA: {Globals.playerStats[player.Slot].JumpOverlap}/{Globals.playerStats[player.Slot].JumpDeadair} | Jumpoff Angle: {Globals.playerStats[player.Slot].JumpoffAngle} | Airpath: {Globals.playerStats[player.Slot].JumpAirpath}]\n" +
             $"[Strafes: {Globals.playerStats[player.Slot].StrafeCount + 1} | Airtime: {Globals.playerStats[player.Slot].JumpAirtime} | {fog}{(hasFog ? " | " : "")}Height: {Globals.playerStats[player.Slot].JumpHeight}{(hasOffset ? " | " : "")}{offset}{(hasStamina ? " | " : "")}{stamina}]";
-        Server.NextFrame(() => player.PrintToChat(consoleStats));
+        player.PrintToConsole(consoleStats);
 
         char[] strafeLeft = new char[512];
         int slIndex = 0;
@@ -698,9 +698,12 @@ public class StrafeHUD : BasePlugin
             lastStrafeTypeLeft = strafeTypeLeft;
             lastStrafeTypeRight = strafeTypeRight;
             lastMouseIndex = mouseIndex;
-            
-            Logger.LogInformation($"Left: {slIndex} | {strafeLeftBuilder}");
-            Logger.LogInformation($"Right: {srIndex} | {strafeRightBuilder}");
+
+            if (srIndex == 32 || slIndex == 32)
+            {
+                player.PrintToConsole($"\nStrafe movement:\nL: {strafeLeftBuilder}\nR: {strafeRightBuilder}" +
+                                      $"\nMouse movement:\nL: {mouseLeftBuilder}\nR: {mouseRightBuilder}");
+            }
         }
     }
     
