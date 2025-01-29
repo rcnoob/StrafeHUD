@@ -7,6 +7,8 @@ namespace StrafeHUD;
 public class PlayerStats
 { 
     public CCSPlayer_MovementServices? MovementService { get; set; }
+    public bool StrafeStatsEnabled { get; set; } = false;
+    public bool LastForwardPressed { get; set; } = false;
     public int TickCount { get; set; } = 0;
     public int FramesOnGround { get; set; } = 0;
     public int FramesInAir { get; set; } = 0;

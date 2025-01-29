@@ -77,7 +77,14 @@ public class StrafeHUD : BasePlugin
             }
             return HookResult.Continue;
         });
-        
+
+        AddCommand("strafestats", "Enable/disable console stats", (player, info) =>
+        {
+            if (player == null || player.IsBot) return;
+            Globals.playerStats[player.Slot].StrafeStatsEnabled = !Globals.playerStats[player.Slot].StrafeStatsEnabled;
+            player.PrintToChat($"[StrafeHUD] Strafe stats: {(Globals.playerStats[player.Slot].StrafeStatsEnabled ? "Enabled" : "Disabled")}");
+        });
+
         Logger.LogInformation("[StrafeHUD] Loaded!");
     }
 
@@ -96,6 +103,7 @@ public class StrafeHUD : BasePlugin
         {
             try
             {
+                if (!Globals.playerStats[player.Slot].StrafeStatsEnabled) return HookResult.Continue;
                 var moveLeft = getMovementButton.Contains("Left");
                 var moveRight = getMovementButton.Contains("Right");
                 var sideMove = baseCmd.SideMove;
@@ -173,9 +181,13 @@ public class StrafeHUD : BasePlugin
                     }
                 }
 
-                bool forwardReleased = !getMovementButton.Contains("Forward");
-                if (forwardReleased)
+                bool forwardPressed = getMovementButton.Contains("Forward");
+                
+                if (Globals.playerStats[player.Slot].LastForwardPressed && !forwardPressed)
+                {
                     Globals.playerStats[player.Slot].ForwardReleaseFrame = Globals.playerStats[player.Slot].TickCount;
+                }
+                Globals.playerStats[player.Slot].LastForwardPressed = forwardPressed;
                 
                 if (Globals.playerStats[player.Slot].FramesOnGround == 1)
                 {
@@ -338,6 +350,15 @@ public class StrafeHUD : BasePlugin
         Utils.ResetJump(player);
         Globals.playerStats[player!.Slot].TrackingJump = true;
         Globals.playerStats[player!.Slot].JumpFrame = Globals.playerStats[player!.Slot].TickCount;
+        if (Globals.playerStats[player.Slot].ForwardReleaseFrame > Globals.playerStats[player.Slot].JumpFrame)
+        {
+            Globals.playerStats[player.Slot].JumpForwardRelease = 
+                Globals.playerStats[player.Slot].ForwardReleaseFrame - Globals.playerStats[player.Slot].JumpFrame;
+        }
+        else 
+        {
+            Globals.playerStats[player.Slot].JumpForwardRelease = 0;
+        }
         Globals.playerStats[player!.Slot].JumpPosition = new Vector(
             Globals.playerStats[player!.Slot].Position.X,
             Globals.playerStats[player!.Slot].Position.Y,
@@ -674,7 +695,7 @@ public class StrafeHUD : BasePlugin
             strafeRightBuilder.Append(StrafeChars[(int)strafeTypeRight]);
             srIndex++;
             
-            char mouseChar = '█';
+            char mouseChar = '|';
             if (Globals.playerStats[player.Slot].MouseGraph[i] == 0)
             {
                 mouseLeftBuilder.Append('.');
@@ -683,14 +704,14 @@ public class StrafeHUD : BasePlugin
             else if (Globals.playerStats[player.Slot].MouseGraph[i] < 0)
             {
                 mouseLeftBuilder.Append('.');
-                mrIndex += 1;
                 mouseRightBuilder.Append(mouseChar);
+                mrIndex++;
             }
             else if (Globals.playerStats[player.Slot].MouseGraph[i] > 0)
             {
-                mlIndex += 1;
                 mouseLeftBuilder.Append(mouseChar);
                 mouseRightBuilder.Append('.');
+                mlIndex++;
             }
 
             int mouseIndex = (int)Utils.FloatSign(Globals.playerStats[player.Slot].MouseGraph[i]) + 1;
@@ -699,11 +720,11 @@ public class StrafeHUD : BasePlugin
             lastStrafeTypeRight = strafeTypeRight;
             lastMouseIndex = mouseIndex;
 
-            if (srIndex == 32 || slIndex == 32)
+            if (srIndex == 32 && slIndex == 32)
             {
                 player.PrintToConsole($"\nStrafe movement:\nL: {strafeLeftBuilder}\nR: {strafeRightBuilder}" +
                                       $"\nMouse movement:\nL: {mouseLeftBuilder}\nR: {mouseRightBuilder}");
-            }
+            } 
         }
     }
     
@@ -726,11 +747,11 @@ public class StrafeHUD : BasePlugin
         '$', // STRAFETYPE_OVERLAP
         '.', // STRAFETYPE_NONE
     
-        '█', // STRAFETYPE_LEFT
+        '|', // STRAFETYPE_LEFT
         '#', // STRAFETYPE_OVERLAP_LEFT
         'H', // STRAFETYPE_NONE_LEFT
     
-        '█', // STRAFETYPE_RIGHT
+        '|', // STRAFETYPE_RIGHT
         '#', // STRAFETYPE_OVERLAP_RIGHT
         'H'  // STRAFETYPE_NONE_RIGHT
     ];
