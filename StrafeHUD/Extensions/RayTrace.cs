@@ -56,7 +56,7 @@ public class RayTrace
         var _trace = stackalloc GameTrace[1];
 
         var result = _traceShape(*(nint*)_gameTraceManagerAddress, _origin.Handle, _endorigin.Handle, 0, mask, 4, _trace);
-
+        
         if (result is false)
             return new Vector(_trace->EndPos.X, _trace->EndPos.Y, _trace->EndPos.Z);
         

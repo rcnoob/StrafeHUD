@@ -37,7 +37,7 @@ public class StrafeHUD : BasePlugin
             RunCommand = new RunCommandWindows();
         }
 
-        RunCommand.Hook(OnRunCommand, HookMode.Pre);
+        RunCommand.Hook(OnRunCommand, HookMode.Post);
         
         RegisterEventHandler<EventPlayerConnectFull>((@event, info) =>
         {
@@ -108,16 +108,41 @@ public class StrafeHUD : BasePlugin
                 Globals.playerStats[player.Slot].LastForwardMove = Globals.playerStats[player.Slot].ForwardMove;
                 Globals.playerStats[player.Slot].ForwardMove = baseCmd.GetForwardMove();
                 
-                Globals.playerStats[player.Slot].LastPosition = Globals.playerStats[player.Slot].Position;
-                Globals.playerStats[player.Slot].Position = player.PlayerPawn.Value!.AbsOrigin!;
+                Globals.playerStats[player.Slot].LastPosition = new Vector(
+                    Globals.playerStats[player.Slot].Position.X,
+                    Globals.playerStats[player.Slot].Position.Y,
+                    Globals.playerStats[player.Slot].Position.Z
+                );
+                Globals.playerStats[player.Slot].Position = new Vector(
+                    player.PlayerPawn.Value!.AbsOrigin!.X,
+                    player.PlayerPawn.Value!.AbsOrigin!.Y,
+                    player.PlayerPawn.Value!.AbsOrigin!.Z
+                );
                 
-                Globals.playerStats[player.Slot].LastAngles = Globals.playerStats[player.Slot].Angles;
-                Globals.playerStats[player.Slot].Angles = userCmd.GetViewAngles()!;
+                Globals.playerStats[player.Slot].LastAngles = new QAngle(
+                    Globals.playerStats[player.Slot].Angles.X,
+                    Globals.playerStats[player.Slot].Angles.Y,
+                    Globals.playerStats[player.Slot].Angles.Z
+                );
+                var viewAngles = userCmd.GetViewAngles()!;
+                Globals.playerStats[player.Slot].Angles = new QAngle(
+                    viewAngles.X,
+                    viewAngles.Y,
+                    viewAngles.Z
+                );
                 
-                Globals.playerStats[player.Slot].LastVelocity = Globals.playerStats[player.Slot].Velocity;
-                Globals.playerStats[player.Slot].Velocity = player.PlayerPawn.Value.AbsVelocity;
+                Globals.playerStats[player.Slot].LastVelocity = new Vector(
+                    Globals.playerStats[player.Slot].Velocity.X,
+                    Globals.playerStats[player.Slot].Velocity.Y,
+                    Globals.playerStats[player.Slot].Velocity.Z
+                );
+                Globals.playerStats[player.Slot].Velocity = new Vector(
+                    player.PlayerPawn.Value.AbsVelocity.X,
+                    player.PlayerPawn.Value.AbsVelocity.Y,
+                    player.PlayerPawn.Value.AbsVelocity.Z
+                );
 
-                if (((PlayerFlags)player.Pawn.Value!.Flags & PlayerFlags.FL_ONGROUND) != PlayerFlags.FL_ONGROUND || (player.PlayerPawn.Value.GroundEntity != null && player.PlayerPawn.Value.GroundEntity.IsValid && player.PlayerPawn.Value.GroundEntity.Index != 0))
+                if (((PlayerFlags)player.Pawn.Value!.Flags & PlayerFlags.FL_ONGROUND) != 0 || (player.PlayerPawn.Value.GroundEntity != null && player.PlayerPawn.Value.GroundEntity.IsValid && player.PlayerPawn.Value.GroundEntity.Index != 0))
                 {
                     Globals.playerStats[player.Slot].FramesInAir = 0;
                     Globals.playerStats[player.Slot].FramesOnGround++;
@@ -148,7 +173,7 @@ public class StrafeHUD : BasePlugin
                 
                 if (Globals.playerStats[player.Slot].FramesOnGround == 1)
                 {
-                    TrackJump(player);
+                    //TrackJump(player);
                     OnPlayerLanded(player);
                 }
 
@@ -171,11 +196,11 @@ public class StrafeHUD : BasePlugin
 
     public void TrackJump(CCSPlayerController? player)
     {
-        /*if (Globals.playerStats[player!.Slot].FramesOnGround > 8)
+        if (Globals.playerStats[player!.Slot].FramesOnGround > 16)
         {
             Logger.LogInformation("Resetjump");
             Utils.ResetJump(player);
-        }*/
+        }
         
         Globals.playerStats[player.Slot].JumpAirtime++;
 
@@ -216,6 +241,8 @@ public class StrafeHUD : BasePlugin
             if (Utils.IsNewStrafe(player))
             {
                 Globals.playerStats[player.Slot].StrafeCount++;
+                Logger.LogInformation($"Total strafes: {Globals.playerStats[player.Slot].StrafeCount}");
+
             }
 
             int strafe = Globals.playerStats[player.Slot].StrafeCount;
@@ -309,18 +336,23 @@ public class StrafeHUD : BasePlugin
         Utils.ResetJump(player);
         Globals.playerStats[player!.Slot].TrackingJump = true;
         Globals.playerStats[player!.Slot].JumpFrame = Globals.playerStats[player!.Slot].TickCount;
-        Globals.playerStats[player!.Slot].JumpPosition = Globals.playerStats[player!.Slot].Position;
+        Globals.playerStats[player!.Slot].JumpPosition = new Vector(
+            Globals.playerStats[player!.Slot].Position.X,
+            Globals.playerStats[player!.Slot].Position.Y,
+            Globals.playerStats[player!.Slot].Position.Z
+        );
         Globals.playerStats[player!.Slot].JumpAngles = Globals.playerStats[player!.Slot].Angles;
 
         Globals.playerStats[player!.Slot].JumpPrespeed = player.PlayerPawn.Value!.AbsVelocity.Length2D();
         Globals.playerStats[player!.Slot].JumpGroundZ = Globals.playerStats[player!.Slot].JumpPosition.Z;
         Logger.LogInformation($"Tracking jump for player {player.PlayerName}");
+        Logger.LogInformation($"Initial jump position is  {Globals.playerStats[player!.Slot].JumpPosition}");
     }
 
     public void OnPlayerLanded(CCSPlayerController? player)
     {
         Logger.LogInformation($"Tracking landing for player {player.PlayerName}");
-        Globals.playerStats[player!.Slot].LandedDucked = ((Globals.playerStats[player.Slot].Flags & PlayerFlags.FL_DUCKING) != PlayerFlags.FL_DUCKING);
+        Globals.playerStats[player!.Slot].LandedDucked = ((Globals.playerStats[player.Slot].Flags & PlayerFlags.FL_DUCKING) != 0);
         if (!Globals.playerStats[player.Slot].TrackingJump)
         {
             Logger.LogInformation("Resetjump (not tracking)");
@@ -345,7 +377,7 @@ public class StrafeHUD : BasePlugin
         Globals.playerStats[player.Slot].LandGroundZ = landGround.Z;
         Logger.LogInformation($"LandgroundZ is {landGround.Z}");
         
-        float gravity = 800;
+        float gravity = 800f;
         float frametime = 0.015625f;
         Vector fixedVelocity;
         Vector airOrigin;
@@ -363,7 +395,7 @@ public class StrafeHUD : BasePlugin
         }
         
         bool isBugged = Globals.playerStats[player.Slot].LastPosition.Z - Globals.playerStats[player.Slot].LandGroundZ <
-                        2;
+                        2.0f;
         if (isBugged)
         {
             fixedVelocity = Globals.playerStats[player.Slot].Velocity;
@@ -380,20 +412,22 @@ public class StrafeHUD : BasePlugin
             airOrigin = Globals.playerStats[player.Slot].Position;
         }
         
+        Logger.LogInformation($"--- Landing Debug ---");
+        Logger.LogInformation($"Current Position: {Globals.playerStats[player.Slot].Position}");
+        Logger.LogInformation($"Jump Position was: {Globals.playerStats[player.Slot].JumpPosition}");
+        Logger.LogInformation($"AirOrigin: {airOrigin}");
+        Logger.LogInformation($"FixedVelocity: {fixedVelocity}");
+        Logger.LogInformation($"LandGroundZ: {Globals.playerStats[player.Slot].LandGroundZ}");
+        
         var landOrigin = Utils.GetRealLandingOrigin(Globals.playerStats[player.Slot].LandGroundZ, airOrigin, fixedVelocity);
         Globals.playerStats[player.Slot].LandPosition = landOrigin;
+        
+        Logger.LogInformation($"LandOrigin returned from GetRealLandingOrigin: {landOrigin}");
+        Logger.LogInformation($"Setting LandPosition to: {landOrigin}");
         
         Globals.playerStats[player.Slot].JumpDistance = (float)Utils.GetVectorDistance2D(
             Globals.playerStats[player.Slot].JumpPosition, Globals.playerStats[player.Slot].LandPosition);
         Globals.playerStats[player.Slot].JumpDistance += 32;
-        
-        Logger.LogInformation($"isBugged? {isBugged}");
-        Logger.LogInformation($"Velocity: {Globals.playerStats[player.Slot].Velocity}");
-        Logger.LogInformation($"LastVelocity Z: {Globals.playerStats[player.Slot].LastVelocity.Z}");
-        Logger.LogInformation($"Fixed Z: {fixedVelocity.Z}");
-        Logger.LogInformation($"Gravity * 0.5f * frametime: {gravity * 0.5f * frametime}");
-        Logger.LogInformation($"AirOrigin: {airOrigin}");
-        Logger.LogInformation($"LandOrigin: {landOrigin}");
         
         FinishTrackingJump(player);
         PrintStats(player);
@@ -582,7 +616,7 @@ public class StrafeHUD : BasePlugin
             $"\n[RC] {(Globals.playerStats[player.Slot].FailedJump ? "FAILED " : "")}LJ: {Globals.playerStats[player.Slot].JumpDistance} [{block}{(hasBlock ? " | " : "")}{edge}{(hasEdge ? " | " : "")}Veer: {Globals.playerStats[player.Slot].JumpVeer} | {fwdRelease} | Sync: {Globals.playerStats[player.Slot].JumpSync} | Max: {Globals.playerStats[player.Slot].JumpMaxspeed}]\n" +
             $"[{landEdge}{(hasLandEdge ? " | " : "")}Pre: {Globals.playerStats[player.Slot].JumpPrespeed} | OL/DA: {Globals.playerStats[player.Slot].JumpOverlap}/{Globals.playerStats[player.Slot].JumpDeadair} | Jumpoff Angle: {Globals.playerStats[player.Slot].JumpoffAngle} | Airpath: {Globals.playerStats[player.Slot].JumpAirpath}]\n" +
             $"[Strafes: {Globals.playerStats[player.Slot].StrafeCount + 1} | Airtime: {Globals.playerStats[player.Slot].JumpAirtime} | {fog}{(hasFog ? " | " : "")}Height: {Globals.playerStats[player.Slot].JumpHeight}{(hasOffset ? " | " : "")}{offset}{(hasStamina ? " | " : "")}{stamina}]";
-        player.PrintToConsole(consoleStats);
+        Server.NextFrame(() => player.PrintToChat(consoleStats));
 
         char[] strafeLeft = new char[512];
         int slIndex = 0;
@@ -620,11 +654,11 @@ public class StrafeHUD : BasePlugin
                 strafeTypeRight = StrafeType.NONE;
             }
             
-            slIndex += 1;
             strafeLeft[slIndex] = StrafeChars[(int)strafeTypeLeft];
-
-            srIndex += 1;
+            slIndex++;
+            
             strafeRight[srIndex] = StrafeChars[(int)strafeTypeRight];
+            srIndex++;
             
             char mouseChar = '█';
             if (Globals.playerStats[player.Slot].MouseGraph[i] == 0)
@@ -652,11 +686,17 @@ public class StrafeHUD : BasePlugin
             lastMouseIndex = mouseIndex;
         }
 
-        mouseLeft[mlIndex] = '\0';
-        mouseRight[mrIndex] = '\0';
-        
-        player.PrintToConsole($"\nStrafe keys: \nL: {new string(strafeLeft)}\nR: {new string(strafeRight)}");
-        player.PrintToConsole($"\nMouse movement: \nL: {new string(mouseLeft)}\nR: {new string(mouseRight)}");
+        string strafeLeftStr = new string(strafeLeft).Trim('\0');
+        string strafeRightStr = new string(strafeRight).Trim('\0');
+        string mouseLeftStr = new string(mouseLeft).Trim('\0');
+        string mouseRightStr = new string(mouseRight).Trim('\0');
+
+        Server.NextFrame(() => player.PrintToChat("\nStrafe keys:"));
+        Server.NextFrame(() => player.PrintToChat($"L: {strafeLeftStr}"));
+        Server.NextFrame(() => player.PrintToChat($"R: {strafeRightStr}"));
+        Server.NextFrame(() => player.PrintToChat("\nMouse movement:"));
+        Server.NextFrame(() => player.PrintToChat($"L: {mouseLeftStr}"));
+        Server.NextFrame(() => player.PrintToChat($"R: {mouseRightStr}"));
     }
     
     public static char[] StrafeChars =

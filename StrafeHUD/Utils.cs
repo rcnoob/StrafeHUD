@@ -173,7 +173,7 @@ public class Utils
         }
 
         float frametime = Globals.Frametime;
-        float verticalDistance = origin.Z - (origin.Z + velocity.Z * frametime);
+        float verticalDistance = -velocity.Z * frametime;
         float fraction = (origin.Z - landGroundZ) / verticalDistance;
 
         Vector addDistance = velocity;
@@ -216,25 +216,9 @@ public class Utils
 
     public static double GetVectorDistance2D(Vector x, Vector y)
     {
-        Vector x2;
-        Vector y2;
-
-        x2 = x;
-        y2 = y;
-
-        x2.Z = 0;
-        y2.Z = 0;
-
-        return Distance(x2, y2);
-    }
-
-    public static double Distance(Vector x, Vector y)
-    {
         double deltaX = x.X - y.X;
         double deltaY = x.Y - y.Y;
-        double deltaZ = x.Z - y.Z;
-
-        return Math.Sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+        return Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
     }
 
     public static Vector GetClientMins()
