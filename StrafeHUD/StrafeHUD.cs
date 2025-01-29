@@ -216,7 +216,6 @@ public class StrafeHUD : BasePlugin
     {
         if (Globals.playerStats[player!.Slot].FramesOnGround > 16)
         {
-            Logger.LogInformation("Resetjump");
             Utils.ResetJump(player);
         }
         
@@ -259,8 +258,6 @@ public class StrafeHUD : BasePlugin
             if (Utils.IsNewStrafe(player))
             {
                 Globals.playerStats[player.Slot].StrafeCount++;
-                Logger.LogInformation($"Total strafes: {Globals.playerStats[player.Slot].StrafeCount}");
-
             }
 
             int strafe = Globals.playerStats[player.Slot].StrafeCount;
@@ -369,7 +366,6 @@ public class StrafeHUD : BasePlugin
         Globals.playerStats[player!.Slot].JumpPrespeed = player.PlayerPawn.Value!.AbsVelocity.Length2D();
         Globals.playerStats[player!.Slot].JumpGroundZ = Globals.playerStats[player!.Slot].JumpPosition.Z;
         Logger.LogInformation($"Tracking jump for player {player.PlayerName}");
-        Logger.LogInformation($"Initial jump position is  {Globals.playerStats[player!.Slot].JumpPosition}");
     }
 
     public void OnPlayerLanded(CCSPlayerController? player)
@@ -393,12 +389,7 @@ public class StrafeHUD : BasePlugin
         }
 
         Vector landGround = Utils.TraceGround(Globals.playerStats[player.Slot].Position);
-        if (landGround is null)
-        {
-            Logger.LogInformation("Landground is null");
-        }
         Globals.playerStats[player.Slot].LandGroundZ = landGround.Z;
-        Logger.LogInformation($"LandgroundZ is {landGround.Z}");
         
         float gravity = 800f;
         float frametime = 0.015625f;
@@ -434,19 +425,8 @@ public class StrafeHUD : BasePlugin
 
             airOrigin = Globals.playerStats[player.Slot].Position;
         }
-        
-        Logger.LogInformation($"--- Landing Debug ---");
-        Logger.LogInformation($"Current Position: {Globals.playerStats[player.Slot].Position}");
-        Logger.LogInformation($"Jump Position was: {Globals.playerStats[player.Slot].JumpPosition}");
-        Logger.LogInformation($"AirOrigin: {airOrigin}");
-        Logger.LogInformation($"FixedVelocity: {fixedVelocity}");
-        Logger.LogInformation($"LandGroundZ: {Globals.playerStats[player.Slot].LandGroundZ}");
-        
         var landOrigin = Utils.GetRealLandingOrigin(Globals.playerStats[player.Slot].LandGroundZ, airOrigin, fixedVelocity);
         Globals.playerStats[player.Slot].LandPosition = landOrigin;
-        
-        Logger.LogInformation($"LandOrigin returned from GetRealLandingOrigin: {landOrigin}");
-        Logger.LogInformation($"Setting LandPosition to: {landOrigin}");
         
         Globals.playerStats[player.Slot].JumpDistance = (float)Utils.GetVectorDistance2D(
             Globals.playerStats[player.Slot].JumpPosition, Globals.playerStats[player.Slot].LandPosition);
@@ -530,13 +510,11 @@ public class StrafeHUD : BasePlugin
         tempPos[blockAxis] += (jumpOrigin[blockAxis] - landOrigin[blockAxis]) / 2;
 
         Vector jumpEdge = Utils.TraceBlock(tempPos, jumpOrigin);
-        Logger.LogInformation($"JumpEdge is {jumpEdge}");
 
         tempPos = jumpOrigin;
         tempPos[blockAxis] += (landOrigin[blockAxis] - jumpOrigin[blockAxis]) / 2;
 
         Vector landEdge = Utils.TraceBlock(tempPos, landOrigin);
-        Logger.LogInformation($"LandEdge is {jumpEdge}");
 
         if (landEdge != Vector.Zero)
         {
@@ -755,8 +733,7 @@ public class StrafeHUD : BasePlugin
         '#', // STRAFETYPE_OVERLAP_RIGHT
         'H'  // STRAFETYPE_NONE_RIGHT
     ];
-
-
+    
     public override void Unload(bool hotReload)
     {
         RunCommand.Unhook(OnRunCommand, HookMode.Pre);
