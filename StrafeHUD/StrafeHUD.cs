@@ -21,7 +21,7 @@ public class StrafeHUD : BasePlugin
     
     private readonly PluginCapability<IClientprefsApi> g_PluginCapability = new("Clientprefs");
     private IClientprefsApi ClientprefsApi;
-    private int g_iCookieID = -1, g_iCookieID2 = -1;
+    private int g_iCookieID = -1, g_iCookieID2 = -1, g_iCookieID3 = -1;
     
     public required IRunCommand RunCommand;
     private int movementServices;
@@ -178,6 +178,17 @@ public class StrafeHUD : BasePlugin
             }
             player.PrintToChat($"[StrafeHUD] Strafe hud: {(Globals.playerStats[player.Slot].StrafeHudEnabled ? "Enabled" : "Disabled")}");
         });
+        
+        AddCommand("ljpb", "Display longjump pb", (player, info) =>
+        {
+            if (player == null || player.IsBot) return;
+            if (String.IsNullOrEmpty(ClientprefsApi.GetPlayerCookie(player, g_iCookieID3)))
+            {
+                player.PrintToChat("[StrafeHUD] LJPB: 0");
+                return;
+            }
+            player.PrintToChat($"[StrafeHUD] LJPB: {ClientprefsApi.GetPlayerCookie(player, g_iCookieID3)}");
+        });
 
         Logger.LogInformation("[StrafeHUD] Loaded!");
     }
@@ -197,7 +208,8 @@ public class StrafeHUD : BasePlugin
 
         g_iCookieID = ClientprefsApi.RegPlayerCookie("strafestats_enabled", "Player has enabled strafestats");
         g_iCookieID2 = ClientprefsApi.RegPlayerCookie("strafehud_enabled", "Player has enabled strafehud");
-
+        g_iCookieID3 = ClientprefsApi.RegPlayerCookie("ljpb", "Longjump personal best");
+        
         if (g_iCookieID == -1)
         {
             Logger.LogError("[StrafeHUD] Failed to register player cookie strafestats_enabled!");
@@ -207,6 +219,12 @@ public class StrafeHUD : BasePlugin
         if (g_iCookieID2 == -1)
         {
             Logger.LogError("[StrafeHUD] Failed to register player cookie strafehud_enabled!");
+            return;
+        }
+        
+        if (g_iCookieID3 == -1)
+        {
+            Logger.LogError("[StrafeHUD] Failed to register player cookie ljpb!");
             return;
         }
     }
@@ -576,7 +594,23 @@ public class StrafeHUD : BasePlugin
         Globals.playerStats[player.Slot].JumpDistance = (float)Utils.GetVectorDistance2D(
             Globals.playerStats[player.Slot].JumpPosition, Globals.playerStats[player.Slot].LandPosition);
         Globals.playerStats[player.Slot].JumpDistance += 32;
-        
+
+
+        try
+        {
+            string cookieValue = ClientprefsApi.GetPlayerCookie(player, g_iCookieID3);
+            double previousPb = (string.IsNullOrEmpty(cookieValue)) ? 0.0 : double.Parse(cookieValue);
+            if (Globals.playerStats[player.Slot].JumpDistance > previousPb)
+            {
+                ClientprefsApi.SetPlayerCookie(player, g_iCookieID3,
+                    Globals.playerStats[player.Slot].JumpDistance.ToString());
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex.Message);
+        }
+
         FinishTrackingJump(player);
         PrintStats(player);
 
@@ -944,7 +978,7 @@ public class StrafeHUD : BasePlugin
     
     public override void Unload(bool hotReload)
     {
-        RunCommand.Unhook(OnRunCommand, HookMode.Pre);
+        RunCommand.Unhook(OnRunCommand, HookMode.Post);
 
         if (ClientprefsApi is null) return;
 
