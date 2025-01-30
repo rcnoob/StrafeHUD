@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
 using CounterStrikeSharp.API;
@@ -6,15 +7,21 @@ using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using StrafeHUD.Extensions;
+using Clientprefs.API;
+using CounterStrikeSharp.API.Core.Capabilities;
 
 namespace StrafeHUD;
 
 public class StrafeHUD : BasePlugin
 {
     public override string ModuleName => "StrafeHUD";
-    public override string ModuleVersion => $"1.0.1";
+    public override string ModuleVersion => $"1.0.2";
     public override string ModuleAuthor => "rc https://github.com/rcnoob/";
     public override string ModuleDescription => "A CS2 StrafeHUD plugin";
+    
+    private readonly PluginCapability<IClientprefsApi> g_PluginCapability = new("Clientprefs");
+    private IClientprefsApi ClientprefsApi;
+    private int g_iCookieID = -1, g_iCookieID2 = -1;
     
     public required IRunCommand RunCommand;
     private int movementServices;
@@ -47,7 +54,22 @@ public class StrafeHUD : BasePlugin
                 var player = @event.Userid;
 
                 if (player.IsValid && !player.IsBot)
+                {
                     Utils.OnPlayerConnect(player);
+
+                    AddTimer(1f, () =>
+                    {
+                        if (ClientprefsApi.GetPlayerCookie(player, g_iCookieID).Equals("true"))
+                        {
+                            Globals.playerStats[player.Slot].StrafeStatsEnabled = true;
+                        }
+
+                        if (ClientprefsApi.GetPlayerCookie(player, g_iCookieID2).Equals("true"))
+                        {
+                            Globals.playerStats[player.Slot].StrafeHudEnabled = true;
+                        }
+                    });
+                }
             }
             return HookResult.Continue;
         });
@@ -77,15 +99,116 @@ public class StrafeHUD : BasePlugin
             }
             return HookResult.Continue;
         });
+        
+        RegisterListener<Listeners.CheckTransmit>((CCheckTransmitInfoList infoList) =>
+        {
+            IEnumerable<CCSPlayerController> players = Utilities.FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller");
+
+            if (!players.Any())
+                return;
+
+            foreach ((CCheckTransmitInfo info, CCSPlayerController? player) in infoList)
+            {
+                if (player == null || player.IsBot || !player.IsValid || player.IsHLTV)
+                    continue;
+
+                if (!Globals.connectedPlayers.TryGetValue(player.Slot, out var connected))
+                    continue;
+
+                foreach (var target in Utilities.FindAllEntitiesByDesignerName<CPointWorldText>("point_worldtext"))
+                {
+                    if (target == null)
+                        continue;
+                    
+                    if (!target.FontName.Equals("Consolas"))
+                        continue;
+
+                    if (Globals.playerStats[player.Slot].LeftText is null ||
+                        Globals.playerStats[player.Slot].RightText is null ||
+                        Globals.playerStats[player.Slot].MouseText is null)
+                    {
+                        info.TransmitEntities.Remove(target);
+                        continue;
+                    }
+
+                    if (!target.EntityHandle.Equals(Globals.playerStats[player.Slot].LeftText!.EntityHandle) &&
+                        !target.EntityHandle.Equals(Globals.playerStats[player.Slot].RightText!.EntityHandle) &&
+                        !target.EntityHandle.Equals(Globals.playerStats[player.Slot].MouseText!.EntityHandle))
+                    {
+                        info.TransmitEntities.Remove(target);
+                    }
+                }
+            }
+        });
 
         AddCommand("strafestats", "Enable/disable console stats", (player, info) =>
         {
             if (player == null || player.IsBot) return;
             Globals.playerStats[player.Slot].StrafeStatsEnabled = !Globals.playerStats[player.Slot].StrafeStatsEnabled;
+
+            if (Globals.playerStats[player.Slot].StrafeStatsEnabled)
+            {
+                ClientprefsApi.SetPlayerCookie(player, g_iCookieID, "true");
+            }
+            else
+            {
+                ClientprefsApi.SetPlayerCookie(player, g_iCookieID, "false");
+            }
+            
             player.PrintToChat($"[StrafeHUD] Strafe stats: {(Globals.playerStats[player.Slot].StrafeStatsEnabled ? "Enabled" : "Disabled")}");
+        });
+        
+        AddCommand("strafehud", "Enable/disable hud stats", (player, info) =>
+        {
+            if (player == null || player.IsBot) return;
+
+            if (!Globals.playerStats[player.Slot].StrafeStatsEnabled)
+            {
+                player.PrintToChat($"[StrafeHUD] You must enable strafestats first!");
+                return;
+            }
+            Globals.playerStats[player.Slot].StrafeHudEnabled = !Globals.playerStats[player.Slot].StrafeHudEnabled;
+            if (Globals.playerStats[player.Slot].StrafeHudEnabled)
+            {
+                ClientprefsApi.SetPlayerCookie(player, g_iCookieID2, "true");
+            }
+            else
+            {
+                ClientprefsApi.SetPlayerCookie(player, g_iCookieID2, "false"); 
+            }
+            player.PrintToChat($"[StrafeHUD] Strafe hud: {(Globals.playerStats[player.Slot].StrafeHudEnabled ? "Enabled" : "Disabled")}");
         });
 
         Logger.LogInformation("[StrafeHUD] Loaded!");
+    }
+
+    public override void OnAllPluginsLoaded(bool hotReload)
+    {
+        ClientprefsApi = g_PluginCapability.Get();
+
+        if (ClientprefsApi == null) return;
+
+        ClientprefsApi.OnDatabaseLoaded += OnClientprefDatabaseReady;
+    }
+
+    public void OnClientprefDatabaseReady()
+    {
+        if (ClientprefsApi is null) return;
+
+        g_iCookieID = ClientprefsApi.RegPlayerCookie("strafestats_enabled", "Player has enabled strafestats");
+        g_iCookieID2 = ClientprefsApi.RegPlayerCookie("strafehud_enabled", "Player has enabled strafehud");
+
+        if (g_iCookieID == -1)
+        {
+            Logger.LogError("[StrafeHUD] Failed to register player cookie strafestats_enabled!");
+            return;
+        }
+        
+        if (g_iCookieID2 == -1)
+        {
+            Logger.LogError("[StrafeHUD] Failed to register player cookie strafehud_enabled!");
+            return;
+        }
     }
 
     private HookResult OnRunCommand(DynamicHook h)
@@ -191,7 +314,7 @@ public class StrafeHUD : BasePlugin
                 
                 if (Globals.playerStats[player.Slot].FramesOnGround == 1)
                 {
-                    //TrackJump(player);
+                    //TrackJump(player, moveLeft, moveRight);
                     OnPlayerLanded(player);
                 }
 
@@ -257,7 +380,14 @@ public class StrafeHUD : BasePlugin
         {
             if (Utils.IsNewStrafe(player))
             {
+                if (Globals.playerStats[player.Slot].StrafeCount > 0)
+                {
+                    Globals.playerStats[player.Slot].StrafeWidths[Globals.playerStats[player.Slot].StrafeCount-1] = 
+                        Utils.GetStrafeWidth(Globals.playerStats[player.Slot].StrafeAngle, Globals.playerStats[player.Slot].Angles);
+                }
                 Globals.playerStats[player.Slot].StrafeCount++;
+                Globals.playerStats[player.Slot].LastStrafeAngle = Globals.playerStats[player.Slot].StrafeAngle;
+                Globals.playerStats[player.Slot].StrafeAngle = Globals.playerStats[player.Slot].Angles;
             }
 
             int strafe = Globals.playerStats[player.Slot].StrafeCount;
@@ -339,11 +469,24 @@ public class StrafeHUD : BasePlugin
                 int yawIndex = Utils.IntMax(Globals.playerStats[player.Slot].JumpAirtime - 2, (int)0);
                 Globals.playerStats[player!.Slot].MouseGraph[yawIndex] = yawDiff;
             }
+            
+            if (Globals.playerStats[player.Slot].FramesOnGround == 0)
+            {
+                Vector delta = Utils.SubtractVectors(Globals.playerStats[player.Slot].Position,
+                    Globals.playerStats[player.Slot].LastPosition);
+                Globals.playerStats[player.Slot].JumpAirpath += delta.Length2D();
+            }
         }
     }
 
     public void OnPlayerJumped(CCSPlayerController? player)
     {
+        if (Globals.playerStats[player!.Slot].LeftText is not null && Globals.playerStats[player.Slot].RightText is not null && Globals.playerStats[player.Slot].MouseText is not null)
+        {
+            Globals.playerStats[player.Slot].LeftText!.AcceptInput("SetMessage", Globals.playerStats[player.Slot].LeftText, Globals.playerStats[player.Slot].LeftText);
+            Globals.playerStats[player.Slot].RightText!.AcceptInput("SetMessage", Globals.playerStats[player.Slot].RightText, Globals.playerStats[player.Slot].RightText);
+            Globals.playerStats[player.Slot].MouseText!.AcceptInput("SetMessage", Globals.playerStats[player.Slot].MouseText, Globals.playerStats[player.Slot].MouseText);
+        }
         Utils.ResetJump(player);
         Globals.playerStats[player!.Slot].TrackingJump = true;
         Globals.playerStats[player!.Slot].JumpFrame = Globals.playerStats[player!.Slot].TickCount;
@@ -365,16 +508,13 @@ public class StrafeHUD : BasePlugin
 
         Globals.playerStats[player!.Slot].JumpPrespeed = player.PlayerPawn.Value!.AbsVelocity.Length2D();
         Globals.playerStats[player!.Slot].JumpGroundZ = Globals.playerStats[player!.Slot].JumpPosition.Z;
-        Logger.LogInformation($"Tracking jump for player {player.PlayerName}");
     }
 
     public void OnPlayerLanded(CCSPlayerController? player)
     {
-        Logger.LogInformation($"Tracking landing for player {player.PlayerName}");
         Globals.playerStats[player!.Slot].LandedDucked = ((Globals.playerStats[player.Slot].Flags & PlayerFlags.FL_DUCKING) != 0);
         if (!Globals.playerStats[player.Slot].TrackingJump)
         {
-            Logger.LogInformation("Resetjump (not tracking)");
             Utils.ResetJump(player);
             return;
         }
@@ -383,9 +523,14 @@ public class StrafeHUD : BasePlugin
                             Globals.playerStats[player.Slot].JumpPosition.Z;
         if (roughOffset > 2.0)
         {
-            Logger.LogInformation("Resetjump (jump too offset)");
             Utils.ResetJump(player);
             return;
+        }
+        
+        if (Globals.playerStats[player.Slot].StrafeCount > 0)
+        {
+            Globals.playerStats[player.Slot].StrafeWidths[Globals.playerStats[player.Slot].StrafeCount-1] = 
+                Utils.GetStrafeWidth(Globals.playerStats[player.Slot].StrafeAngle, Globals.playerStats[player.Slot].Angles);
         }
 
         Vector landGround = Utils.TraceGround(Globals.playerStats[player.Slot].Position);
@@ -505,8 +650,7 @@ public class StrafeHUD : BasePlugin
 
         landOrigin[blockAxis] -= blockDir * 16;
 
-        Vector tempPos;
-        tempPos = landOrigin;
+        var tempPos = landOrigin;
         tempPos[blockAxis] += (jumpOrigin[blockAxis] - landOrigin[blockAxis]) / 2;
 
         Vector jumpEdge = Utils.TraceBlock(tempPos, jumpOrigin);
@@ -544,7 +688,6 @@ public class StrafeHUD : BasePlugin
     public void PrintStats(CCSPlayerController? player)
     {
         // beam stuff in future
-        Logger.LogInformation($"Printing stats for player {player!.PlayerName}");
         string fwdRelease = "";
         if (Globals.playerStats[player!.Slot].JumpForwardRelease == 0)
         {
@@ -619,26 +762,37 @@ public class StrafeHUD : BasePlugin
             $"[Strafes: {Globals.playerStats[player.Slot].StrafeCount + 1} | Airtime: {Globals.playerStats[player.Slot].JumpAirtime} | {fog}{(hasFog ? " | " : "")}Height: {Globals.playerStats[player.Slot].JumpHeight}{(hasOffset ? " | " : "")}{offset}{(hasStamina ? " | " : "")}{stamina}]";
         player.PrintToConsole(consoleStats);
 
-        char[] strafeLeft = new char[512];
+        player.PrintToConsole(" #.  Sync    Gain   Loss   Max  Air  OL  DA  AvgGain  Width");
+        for (int strafe = 0; strafe <= Globals.playerStats[player.Slot].StrafeCount && strafe < 32; strafe++)
+        {
+            player.PrintToConsole($"{strafe + 1}. " +
+                                  $"{Globals.playerStats[player.Slot].StrafeSync[strafe],5:F1}% " +
+                                  $"{Globals.playerStats[player.Slot].StrafeGain[strafe],6:F2} " +
+                                  $"{Globals.playerStats[player.Slot].StrafeLoss[strafe],6:F2}  " +
+                                  $"{Globals.playerStats[player.Slot].StrafeMax[strafe],5:F1} " + 
+                                  $"{Globals.playerStats[player.Slot].StrafeAirtime[strafe],3} " + 
+                                  $"{Globals.playerStats[player.Slot].StrafeOverlap[strafe],3} " + 
+                                  $"{Globals.playerStats[player.Slot].StrafeDeadair[strafe],3}   " +
+                                  $"{Globals.playerStats[player.Slot].StrafeAvgGain[strafe],3:F2}     " + 
+                                  $"{Globals.playerStats[player.Slot].StrafeWidths[strafe]}\u00b0");
+        }
+
         int slIndex = 0;
-        char[] strafeRight = new char[512];
         int srIndex = 0;
-        char[] mouseLeft = new char[512];
         int mlIndex = 0;
-        char[] mouseRight = new char[512];
         int mrIndex = 0;
-        
+
         StringBuilder strafeLeftBuilder = new StringBuilder();
         StringBuilder strafeRightBuilder = new StringBuilder();
         StringBuilder mouseLeftBuilder = new StringBuilder();
         StringBuilder mouseRightBuilder = new StringBuilder();
 
-        string[] mouseColours =
-        [
-            "<font color='#FFBF00'>|",
-            "<font color='#000000'>|",
-            "<font color='#003FFF'>|"
-        ];
+        StringBuilder hudStrafeLeftBuilder = new StringBuilder();
+        int hslIndex = 0;
+        StringBuilder hudStrafeRightBuilder = new StringBuilder();
+        int hsrIndex = 0;
+        StringBuilder hudMouseBuilder = new StringBuilder();
+        int hmIndex = 0;
 
         StrafeType lastStrafeTypeLeft = (StrafeType)420;
         StrafeType lastStrafeTypeRight = (StrafeType)420;
@@ -648,15 +802,15 @@ public class StrafeHUD : BasePlugin
             StrafeType strafeType = Globals.playerStats[player.Slot].StrafeGraph[i];
 
             StrafeType strafeTypeLeft = strafeType;
-            if (strafeTypeLeft == StrafeType.RIGHT || 
+            if (strafeTypeLeft == StrafeType.RIGHT ||
                 strafeTypeLeft == StrafeType.NONE_RIGHT ||
                 strafeTypeLeft == StrafeType.OVERLAP_RIGHT)
             {
                 strafeTypeLeft = StrafeType.NONE;
             }
-            
+
             StrafeType strafeTypeRight = strafeType;
-            if (strafeTypeRight == StrafeType.LEFT || 
+            if (strafeTypeRight == StrafeType.LEFT ||
                 strafeTypeRight == StrafeType.NONE_LEFT ||
                 strafeTypeRight == StrafeType.OVERLAP_LEFT)
             {
@@ -666,13 +820,13 @@ public class StrafeHUD : BasePlugin
             {
                 strafeTypeRight = StrafeType.RIGHT;
             }
-            
+
             strafeLeftBuilder.Append(StrafeChars[(int)strafeTypeLeft]);
             slIndex++;
-            
+
             strafeRightBuilder.Append(StrafeChars[(int)strafeTypeRight]);
             srIndex++;
-            
+
             string mouseChar = "|";
             if (Globals.playerStats[player.Slot].MouseGraph[i] == 0)
             {
@@ -692,21 +846,60 @@ public class StrafeHUD : BasePlugin
                 mlIndex++;
             }
 
+            if (i == 0)
+            {
+                hudStrafeLeftBuilder.Append("L:");
+                hudStrafeRightBuilder.Append("R:");
+                hudMouseBuilder.Append("M:");
+            }
+
+            if (lastStrafeTypeLeft != strafeTypeLeft)
+            {
+                hudStrafeLeftBuilder.Append(HudChars[(int)strafeTypeLeft]);
+            }
+            else
+            {
+                hudStrafeLeftBuilder.Append(HudChars[(int)strafeTypeLeft]);
+            }
+
+            if (lastStrafeTypeRight != strafeTypeRight)
+            {
+                hudStrafeRightBuilder.Append(HudChars[(int)strafeTypeRight]);
+            }
+            else
+            {
+                hudStrafeRightBuilder.Append(HudChars[(int)strafeTypeRight]);
+            }
+
             int mouseIndex = (int)Utils.FloatSign(Globals.playerStats[player.Slot].MouseGraph[i]) + 1;
-            
+            if (mouseIndex != lastMouseIndex)
+            {
+                hudMouseBuilder.Append(".");
+            }
+            else
+            {
+                hudMouseBuilder.Append("|");
+            }
+
             lastStrafeTypeLeft = strafeTypeLeft;
             lastStrafeTypeRight = strafeTypeRight;
             lastMouseIndex = mouseIndex;
-            
+
             bool isLastTick = (i == Math.Min(Globals.playerStats[player.Slot].JumpAirtime - 1, 149));
             if (isLastTick)
             {
+                if (Globals.playerStats[player.Slot].StrafeHudEnabled)
+                {
+                    Globals.playerStats[player.Slot].LeftText = Utils.CreateLeftStrafeHud(player, hudStrafeLeftBuilder.ToString(), 30, Color.Black, "Consolas");
+                    Globals.playerStats[player.Slot].RightText = Utils.CreateRightStrafeHud(player, hudStrafeRightBuilder.ToString(), 30, Color.Black, "Consolas");
+                    Globals.playerStats[player.Slot].MouseText = Utils.CreateMouseHud(player, hudMouseBuilder.ToString(), 30, Color.Black, "Consolas");
+                }
                 player.PrintToConsole($"\nStrafe movement:\nL: {strafeLeftBuilder}\nR: {strafeRightBuilder}" +
                                       $"\nMouse movement:\nL: {mouseLeftBuilder}\nR: {mouseRightBuilder}");
             }
         }
     }
-    
+
     public enum StrafeType
     {
         OVERLAP,           // A + D are pressed and sidemove is 0
@@ -735,9 +928,27 @@ public class StrafeHUD : BasePlugin
         "H"  // STRAFETYPE_NONE_RIGHT
     ];
     
+    public string[] HudChars =
+    [
+        ":", // STRAFETYPE_OVERLAP
+        ".", // STRAFETYPE_NONE
+
+        "|", // STRAFETYPE_LEFT
+        ";", // STRAFETYPE_OVERLAP_LEFT
+        "!", // STRAFETYPE_NONE_LEFT
+
+        "|", // STRAFETYPE_RIGHT
+        ";", // STRAFETYPE_OVERLAP_RIGHT
+        "!"  // STRAFETYPE_NONE_RIGHT
+    ];
+    
     public override void Unload(bool hotReload)
     {
         RunCommand.Unhook(OnRunCommand, HookMode.Pre);
+
+        if (ClientprefsApi is null) return;
+
+        ClientprefsApi.OnDatabaseLoaded -= OnClientprefDatabaseReady;
 
         Logger.LogInformation("[StrafeHUD] Plugin unloaded.");
     }

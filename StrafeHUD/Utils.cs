@@ -1,6 +1,8 @@
+using System.Drawing;
 using System.Numerics;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Utils;
 using StrafeHUD.Extensions;
 using Vector = CounterStrikeSharp.API.Modules.Utils.Vector;
@@ -221,18 +223,6 @@ public class Utils
         return Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
     }
 
-    public static Vector GetClientMins()
-    {
-        return new Vector(-16, -16, 0);
-    }
-
-    public static Vector GetClientMaxs(CCSPlayerController? player)
-    {
-        return (Globals.playerStats[player!.Slot].Flags & PlayerFlags.FL_DUCKING) != 0
-            ? new Vector(16, 16, 54)
-            : new Vector(16, 16, 72);
-    }
-
     public static float NormalizeYaw(float angle)
     {
         if (angle <= -180)
@@ -249,8 +239,162 @@ public class Utils
         return n1 > n2 ? n1 : n2;
     }
 
-    public bool IsOverlapping()
+    public static double GetStrafeWidth(QAngle x, QAngle y)
     {
-        return false;
+        double width = Math.Abs(y.Y - x.Y);
+
+        if (width > 180)
+        {
+            width -= 360;
+        }
+        return Math.Abs(Math.Round(width, 1));
+    }
+    
+    public static CPointWorldText CreateLeftStrafeHud(CCSPlayerController player, string text, int size = 100, Color? color = null, string font = "")
+    {
+        CCSPlayerPawn pawn = player?.PlayerPawn.Value!;
+
+        var handle = new CHandle<CCSGOViewModel>((IntPtr)(pawn.ViewModelServices!.Handle + Schema.GetSchemaOffset("CCSPlayer_ViewModelServices", "m_hViewModel") + 4));
+        if (!handle.IsValid)
+        {
+            CCSGOViewModel viewmodel = Utilities.CreateEntityByName<CCSGOViewModel>("predicted_viewmodel")!;
+            viewmodel.DispatchSpawn();
+            handle.Raw = viewmodel.EntityHandle.Raw;
+            Utilities.SetStateChanged(pawn, "CCSPlayerPawnBase", "m_pViewModelServices");
+        }
+
+        CPointWorldText worldText = Utilities.CreateEntityByName<CPointWorldText>("point_worldtext")!;
+        worldText.MessageText = text;
+        worldText.Enabled = true;
+        worldText.FontSize = size;
+        worldText.Fullbright = true;
+        worldText.Color = color ?? Color.Aquamarine;
+        worldText.WorldUnitsPerPx = 0.01f;
+        worldText.FontName = font;
+        worldText.JustifyHorizontal = PointWorldTextJustifyHorizontal_t.POINT_WORLD_TEXT_JUSTIFY_HORIZONTAL_LEFT;
+        worldText.JustifyVertical = PointWorldTextJustifyVertical_t.POINT_WORLD_TEXT_JUSTIFY_VERTICAL_TOP;
+        worldText.ReorientMode = PointWorldTextReorientMode_t.POINT_WORLD_TEXT_REORIENT_NONE;
+
+        QAngle eyeAngles = pawn.EyeAngles;
+        Vector forward = new(), right = new(), up = new();
+        NativeAPI.AngleVectors(eyeAngles.Handle, forward.Handle, right.Handle, up.Handle);
+
+        Vector eyePosition = new();
+        eyePosition += forward * 7;
+        eyePosition += right * -5;
+        eyePosition += up * 5f;
+        QAngle angles = new()
+        {
+            Y = eyeAngles.Y + 270,
+            Z = 90 - eyeAngles.X,
+            X = 0
+        };
+
+        worldText.DispatchSpawn();
+        worldText.Teleport(pawn.AbsOrigin! + eyePosition + new Vector(0, 0, pawn.ViewOffset.Z), angles, null);
+        Server.NextFrame(() =>
+        {
+            worldText.AcceptInput("SetParent", handle.Value, null, "!activator");
+        });
+
+        return worldText;
+    }
+    public static CPointWorldText CreateRightStrafeHud(CCSPlayerController player, string text, int size = 100, Color? color = null, string font = "")
+    {
+        CCSPlayerPawn pawn = player?.PlayerPawn.Value!;
+
+        var handle = new CHandle<CCSGOViewModel>((IntPtr)(pawn.ViewModelServices!.Handle + Schema.GetSchemaOffset("CCSPlayer_ViewModelServices", "m_hViewModel") + 4));
+        if (!handle.IsValid)
+        {
+            CCSGOViewModel viewmodel = Utilities.CreateEntityByName<CCSGOViewModel>("predicted_viewmodel")!;
+            viewmodel.DispatchSpawn();
+            handle.Raw = viewmodel.EntityHandle.Raw;
+            Utilities.SetStateChanged(pawn, "CCSPlayerPawnBase", "m_pViewModelServices");
+        }
+
+        CPointWorldText worldText = Utilities.CreateEntityByName<CPointWorldText>("point_worldtext")!;
+        worldText.MessageText = text;
+        worldText.Enabled = true;
+        worldText.FontSize = size;
+        worldText.Fullbright = true;
+        worldText.Color = color ?? Color.Aquamarine;
+        worldText.WorldUnitsPerPx = 0.01f;
+        worldText.FontName = font;
+        worldText.JustifyHorizontal = PointWorldTextJustifyHorizontal_t.POINT_WORLD_TEXT_JUSTIFY_HORIZONTAL_LEFT;
+        worldText.JustifyVertical = PointWorldTextJustifyVertical_t.POINT_WORLD_TEXT_JUSTIFY_VERTICAL_TOP;
+        worldText.ReorientMode = PointWorldTextReorientMode_t.POINT_WORLD_TEXT_REORIENT_NONE;
+
+        QAngle eyeAngles = pawn.EyeAngles;
+        Vector forward = new(), right = new(), up = new();
+        NativeAPI.AngleVectors(eyeAngles.Handle, forward.Handle, right.Handle, up.Handle);
+
+        Vector eyePosition = new();
+        eyePosition += forward * 7;
+        eyePosition += right * -5;
+        eyePosition += up * 4.5f;
+        QAngle angles = new()
+        {
+            Y = eyeAngles.Y + 270,
+            Z = 90 - eyeAngles.X,
+            X = 0
+        };
+
+        worldText.DispatchSpawn();
+        worldText.Teleport(pawn.AbsOrigin! + eyePosition + new Vector(0, 0, pawn.ViewOffset.Z), angles, null);
+        Server.NextFrame(() =>
+        {
+            worldText.AcceptInput("SetParent", handle.Value, null, "!activator");
+        });
+
+        return worldText;
+    }
+    public static CPointWorldText CreateMouseHud(CCSPlayerController player, string text, int size = 100, Color? color = null, string font = "")
+    {
+        CCSPlayerPawn pawn = player?.PlayerPawn.Value!;
+
+        var handle = new CHandle<CCSGOViewModel>((IntPtr)(pawn.ViewModelServices!.Handle + Schema.GetSchemaOffset("CCSPlayer_ViewModelServices", "m_hViewModel") + 4));
+        if (!handle.IsValid)
+        {
+            CCSGOViewModel viewmodel = Utilities.CreateEntityByName<CCSGOViewModel>("predicted_viewmodel")!;
+            viewmodel.DispatchSpawn();
+            handle.Raw = viewmodel.EntityHandle.Raw;
+            Utilities.SetStateChanged(pawn, "CCSPlayerPawnBase", "m_pViewModelServices");
+        }
+
+        CPointWorldText worldText = Utilities.CreateEntityByName<CPointWorldText>("point_worldtext")!;
+        worldText.MessageText = text;
+        worldText.Enabled = true;
+        worldText.FontSize = size;
+        worldText.Fullbright = true;
+        worldText.Color = color ?? Color.Aquamarine;
+        worldText.WorldUnitsPerPx = 0.01f;
+        worldText.FontName = font;
+        worldText.JustifyHorizontal = PointWorldTextJustifyHorizontal_t.POINT_WORLD_TEXT_JUSTIFY_HORIZONTAL_LEFT;
+        worldText.JustifyVertical = PointWorldTextJustifyVertical_t.POINT_WORLD_TEXT_JUSTIFY_VERTICAL_TOP;
+        worldText.ReorientMode = PointWorldTextReorientMode_t.POINT_WORLD_TEXT_REORIENT_NONE;
+
+        QAngle eyeAngles = pawn.EyeAngles;
+        Vector forward = new(), right = new(), up = new();
+        NativeAPI.AngleVectors(eyeAngles.Handle, forward.Handle, right.Handle, up.Handle);
+
+        Vector eyePosition = new();
+        eyePosition += forward * 7;
+        eyePosition += right * -5;
+        eyePosition += up * 4f;
+        QAngle angles = new()
+        {
+            Y = eyeAngles.Y + 270,
+            Z = 90 - eyeAngles.X,
+            X = 0
+        };
+
+        worldText.DispatchSpawn();
+        worldText.Teleport(pawn.AbsOrigin! + eyePosition + new Vector(0, 0, pawn.ViewOffset.Z), angles, null);
+        Server.NextFrame(() =>
+        {
+            worldText.AcceptInput("SetParent", handle.Value, null, "!activator");
+        });
+
+        return worldText;
     }
 }
