@@ -75,6 +75,6 @@ public class PlayerStats
     public int[] StrafeAvgEfficiencyCount { get; set; } = new int[32];
     public float[] StrafeMaxEfficiency { get; set; } = new float[32];
     
-    public StrafeHUD.StrafeType[] StrafeGraph { get; set; } = new StrafeHUD.StrafeType[32];
-    public float[] MouseGraph { get; set; } = new float[32];
+    public StrafeHUD.StrafeType[] StrafeGraph { get; set; } = new StrafeHUD.StrafeType[150];
+    public float[] MouseGraph { get; set; } = new float[150];
 }

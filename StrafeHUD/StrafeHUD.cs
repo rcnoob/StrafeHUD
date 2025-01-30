@@ -12,7 +12,7 @@ namespace StrafeHUD;
 public class StrafeHUD : BasePlugin
 {
     public override string ModuleName => "StrafeHUD";
-    public override string ModuleVersion => $"1.0.0";
+    public override string ModuleVersion => $"1.0.1";
     public override string ModuleAuthor => "rc https://github.com/rcnoob/";
     public override string ModuleDescription => "A CS2 StrafeHUD plugin";
     
@@ -673,22 +673,22 @@ public class StrafeHUD : BasePlugin
             strafeRightBuilder.Append(StrafeChars[(int)strafeTypeRight]);
             srIndex++;
             
-            char mouseChar = '|';
+            string mouseChar = "|";
             if (Globals.playerStats[player.Slot].MouseGraph[i] == 0)
             {
-                mouseLeftBuilder.Append('.');
-                mouseRightBuilder.Append('.');
+                mouseLeftBuilder.Append(".");
+                mouseRightBuilder.Append(".");
             }
             else if (Globals.playerStats[player.Slot].MouseGraph[i] < 0)
             {
-                mouseLeftBuilder.Append('.');
+                mouseLeftBuilder.Append(".");
                 mouseRightBuilder.Append(mouseChar);
                 mrIndex++;
             }
             else if (Globals.playerStats[player.Slot].MouseGraph[i] > 0)
             {
                 mouseLeftBuilder.Append(mouseChar);
-                mouseRightBuilder.Append('.');
+                mouseRightBuilder.Append(".");
                 mlIndex++;
             }
 
@@ -697,12 +697,13 @@ public class StrafeHUD : BasePlugin
             lastStrafeTypeLeft = strafeTypeLeft;
             lastStrafeTypeRight = strafeTypeRight;
             lastMouseIndex = mouseIndex;
-
-            if (srIndex == 32 && slIndex == 32)
+            
+            bool isLastTick = (i == Math.Min(Globals.playerStats[player.Slot].JumpAirtime - 1, 149));
+            if (isLastTick)
             {
                 player.PrintToConsole($"\nStrafe movement:\nL: {strafeLeftBuilder}\nR: {strafeRightBuilder}" +
                                       $"\nMouse movement:\nL: {mouseLeftBuilder}\nR: {mouseRightBuilder}");
-            } 
+            }
         }
     }
     
@@ -720,18 +721,18 @@ public class StrafeHUD : BasePlugin
         NONE_RIGHT         // A + D are not pressed and sidemove is more than 0
     }
     
-    public char[] StrafeChars =
+    public string[] StrafeChars =
     [
-        '$', // STRAFETYPE_OVERLAP
-        '.', // STRAFETYPE_NONE
+        "$", // STRAFETYPE_OVERLAP
+        ".", // STRAFETYPE_NONE
     
-        '|', // STRAFETYPE_LEFT
-        '#', // STRAFETYPE_OVERLAP_LEFT
-        'H', // STRAFETYPE_NONE_LEFT
+        "|", // STRAFETYPE_LEFT
+        "#", // STRAFETYPE_OVERLAP_LEFT
+        "H", // STRAFETYPE_NONE_LEFT
     
-        '|', // STRAFETYPE_RIGHT
-        '#', // STRAFETYPE_OVERLAP_RIGHT
-        'H'  // STRAFETYPE_NONE_RIGHT
+        "|", // STRAFETYPE_RIGHT
+        "#", // STRAFETYPE_OVERLAP_RIGHT
+        "H"  // STRAFETYPE_NONE_RIGHT
     ];
     
     public override void Unload(bool hotReload)
