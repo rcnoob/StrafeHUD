@@ -359,6 +359,11 @@ public class StrafeHUD : BasePlugin
         {
             Utils.ResetJump(player);
         }
+
+        if (player.Pawn.Value!.MoveType != MoveType_t.MOVETYPE_WALK)
+        {
+            Utils.ResetJump(player);
+        }
         
         Globals.playerStats[player.Slot].JumpAirtime++;
 
