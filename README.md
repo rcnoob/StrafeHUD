@@ -14,22 +14,22 @@ See your personal best with !ljpb
 
 `|` = a clean left/right strafe
 
-`.` = no keys, no sidemove
+`.` = no keys, no speed gain
 
-`$` = overlapping keys
+`$` = overlapping keys, no speed gain
 
-`#` = overlapping while drifting left/right
+`#` = overlapping while some speed gain left/right
 
-`H` = no keys, drifting left/right
+`H` = no keys, speed gain left/right
 
 ## In HUD stats (different bc spacing)
 
 `|` = a clean left/right strafe
 
-`.` = no keys, no sidemove
+`.` = no keys, no speed gain
 
-`:` = overlapping keys
+`:` = overlapping keys, no speed gain
 
-`;` = overlapping while drifting left/right
+`;` = overlapping while some speed gain left/right
 
-`!` = no keys, drifting left/right
+`!` = no keys, speed gain left/right
