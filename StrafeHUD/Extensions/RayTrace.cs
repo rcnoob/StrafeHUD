@@ -31,35 +31,38 @@ public class RayTrace
         ? "48 8D 05 ? ? ? ? F3 0F 58 8D ? ? ? ? 31 FF"
         : "48 8B 0D ? ? ? ? 48 8D 45 ? 48 89 44 24 ? 4C 8D 44 24 ? C7 44 24 ? ? ? ? ? 48 8D 54 24 ? 4C 8B CB");
 
-        public static unsafe CounterStrikeSharp.API.Modules.Utils.Vector? TraceRay(
-
-        Vector origin, 
-        Vector endorigin,
-        ulong mask
-    ) {
-  
-        Vector _origin = new (0,0,0);
-        Vector _endorigin = new (0,0,0);
-
+    public static unsafe Vector? TraceRay(Vector origin, Vector direction, ulong mask) 
+    {
         var _gameTraceManagerAddress = Address.GetAbsoluteAddress(GameTraceManager, 3, 7);
         if (_gameTraceManagerAddress is 0) return null;
-        
+    
         _traceShape = Marshal.GetDelegateForFunctionPointer<TraceShapeDelegate>(TraceFunc);
         if (_traceShape is null) return null;
 
-        var _forward = new Vector();
+        // Calculate end point directly using normalized direction
+        var endPoint = new Vector(
+            origin.X + direction.X * 8192,
+            origin.Y + direction.Y * 8192,
+            origin.Z + direction.Z * 8192
+        );
+    
+        var trace = stackalloc GameTrace[1];
 
-        
-        _origin = origin;
-        _endorigin = endorigin;
-        
-        var _trace = stackalloc GameTrace[1];
+        var result = _traceShape(
+            *(nint*)_gameTraceManagerAddress, 
+            origin.Handle, 
+            endPoint.Handle, 
+            0, 
+            mask, 
+            4, 
+            trace
+        );
+    
+        if (result is true)
+        {
+            return new Vector(trace->EndPos.X, trace->EndPos.Y, trace->EndPos.Z);
+        }
 
-        var result = _traceShape(*(nint*)_gameTraceManagerAddress, _origin.Handle, _endorigin.Handle, 0, mask, 4, _trace);
-        
-        if (result is false)
-            return new Vector(_trace->EndPos.X, _trace->EndPos.Y, _trace->EndPos.Z);
-        
         return null;
     }
 }

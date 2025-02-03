@@ -4,6 +4,8 @@ using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Utils;
+using Microsoft.Extensions.Logging;
+using Serilog.Core;
 using StrafeHUD.Extensions;
 using Vector = CounterStrikeSharp.API.Modules.Utils.Vector;
 
@@ -68,6 +70,7 @@ public class Utils
         Globals.playerStats[player.Slot].JumpOverlap = 0;
         Globals.playerStats[player.Slot].JumpDeadair = 0;
         Globals.playerStats[player.Slot].JumpAirpath = 0;
+        Globals.playerStats[player.Slot].JumpDistance = 0;
 
         Globals.playerStats[player.Slot].StrafeCount = 0;
         for (int i = 0; i < 32; i++)
@@ -148,22 +151,34 @@ public class Utils
     public static Vector TraceGround(Vector pos)
     {
         Vector startPos = pos;
-        Vector endPos = pos;
+        Vector direction = new Vector(0, 0, -1);
 
-        endPos.Z -= 2;
+        Vector? result = RayTrace.TraceRay(startPos, direction, Masks.MASK_SOLID);
 
-        Vector result = RayTrace.TraceRay(startPos, endPos, Masks.MASK_SOLID);
+        if (result is null || result == Vector.Zero)
+            return startPos;
 
         return result;
     }
 
-    public static Vector TraceBlock(Vector pos1, Vector pos2)
+    public static Vector TraceBlock(Vector jumpPos, int blockAxis, int blockDir)
     {
-        Vector startPos = pos1;
-        Vector endPos = pos2;
+        Vector startPos = new Vector(jumpPos.X, jumpPos.Y, jumpPos.Z - 2);
+    
+        Vector direction = new Vector(
+            blockAxis == 0 ? blockDir : 0,
+            blockAxis == 1 ? blockDir : 0,
+            0 
+        );
+        
+        Vector? result = RayTrace.TraceRay(startPos, direction, Masks.MASK_SOLID);
 
-        Vector result = RayTrace.TraceRay(startPos, endPos, Masks.MASK_SOLID);
+        if (result is null)
+            return jumpPos;
 
+        // The edge distance will be the distance between jump position and where we hit
+        float edgeDist = Math.Abs(result[blockAxis] - jumpPos[blockAxis]);
+    
         return result;
     }
 
@@ -292,10 +307,7 @@ public class Utils
 
         worldText.DispatchSpawn();
         worldText.Teleport(pawn.AbsOrigin! + eyePosition + new Vector(0, 0, pawn.ViewOffset.Z), angles, null);
-        Server.NextFrame(() =>
-        {
-            worldText.AcceptInput("SetParent", handle.Value, null, "!activator");
-        });
+        worldText.AcceptInput("SetParent", handle.Value, null, "!activator");
 
         return worldText;
     }
@@ -341,11 +353,8 @@ public class Utils
 
         worldText.DispatchSpawn();
         worldText.Teleport(pawn.AbsOrigin! + eyePosition + new Vector(0, 0, pawn.ViewOffset.Z), angles, null);
-        Server.NextFrame(() =>
-        {
-            worldText.AcceptInput("SetParent", handle.Value, null, "!activator");
-        });
-
+        worldText.AcceptInput("SetParent", handle.Value, null, "!activator");
+            
         return worldText;
     }
     public static CPointWorldText CreateMouseHud(CCSPlayerController player, string text, int size = 100, Color? color = null, string font = "")
@@ -390,10 +399,7 @@ public class Utils
 
         worldText.DispatchSpawn();
         worldText.Teleport(pawn.AbsOrigin! + eyePosition + new Vector(0, 0, pawn.ViewOffset.Z), angles, null);
-        Server.NextFrame(() =>
-        {
-            worldText.AcceptInput("SetParent", handle.Value, null, "!activator");
-        });
+        worldText.AcceptInput("SetParent", handle.Value, null, "!activator");
 
         return worldText;
     }

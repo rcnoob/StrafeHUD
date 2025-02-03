@@ -15,13 +15,14 @@ namespace StrafeHUD;
 public class StrafeHUD : BasePlugin
 {
     public override string ModuleName => "StrafeHUD";
-    public override string ModuleVersion => $"1.0.2";
+    public override string ModuleVersion => $"1.0.3";
     public override string ModuleAuthor => "rc https://github.com/rcnoob/";
     public override string ModuleDescription => "A CS2 StrafeHUD plugin";
     
     private readonly PluginCapability<IClientprefsApi> g_PluginCapability = new("Clientprefs");
     private IClientprefsApi ClientprefsApi;
     private int g_iCookieID = -1, g_iCookieID2 = -1, g_iCookieID3 = -1;
+    private Dictionary<int, Dictionary<string, string>> playerCookies = new();
     
     public required IRunCommand RunCommand;
     private int movementServices;
@@ -54,22 +55,7 @@ public class StrafeHUD : BasePlugin
                 var player = @event.Userid;
 
                 if (player.IsValid && !player.IsBot)
-                {
                     Utils.OnPlayerConnect(player);
-
-                    AddTimer(1f, () =>
-                    {
-                        if (ClientprefsApi.GetPlayerCookie(player, g_iCookieID).Equals("true"))
-                        {
-                            Globals.playerStats[player.Slot].StrafeStatsEnabled = true;
-                        }
-
-                        if (ClientprefsApi.GetPlayerCookie(player, g_iCookieID2).Equals("true"))
-                        {
-                            Globals.playerStats[player.Slot].StrafeHudEnabled = true;
-                        }
-                    });
-                }
             }
             return HookResult.Continue;
         });
@@ -95,7 +81,22 @@ public class StrafeHUD : BasePlugin
                 var player = @event.Userid;
 
                 if (player.IsValid && !player.IsBot)
-                    OnPlayerJumped(player);
+                {
+                    JumpType jumpType = JumpType.NONE;
+                    if (Globals.playerStats[player.Slot].FramesOnGround <= 8)
+                    {
+                        // TODO: wj/cbh/bh
+                    }
+                    else
+                    {
+                        jumpType = JumpType.LJ;
+                    }
+
+                    if (jumpType != JumpType.NONE)
+                    {
+                        OnPlayerJumped(player, jumpType);
+                    }
+                }
             }
             return HookResult.Continue;
         });
@@ -182,12 +183,12 @@ public class StrafeHUD : BasePlugin
         AddCommand("ljpb", "Display longjump pb", (player, info) =>
         {
             if (player == null || player.IsBot) return;
-            if (String.IsNullOrEmpty(ClientprefsApi.GetPlayerCookie(player, g_iCookieID3)))
+            if (String.IsNullOrEmpty(playerCookies[player.Slot]["ljpb"]))
             {
                 player.PrintToChat("[StrafeHUD] LJPB: 0");
                 return;
             }
-            player.PrintToChat($"[StrafeHUD] LJPB: {ClientprefsApi.GetPlayerCookie(player, g_iCookieID3)}");
+            player.PrintToChat($"[StrafeHUD] LJPB: {playerCookies[player.Slot]["ljpb"]}");
         });
 
         Logger.LogInformation("[StrafeHUD] Loaded!");
@@ -200,6 +201,16 @@ public class StrafeHUD : BasePlugin
         if (ClientprefsApi == null) return;
 
         ClientprefsApi.OnDatabaseLoaded += OnClientprefDatabaseReady;
+        ClientprefsApi.OnPlayerCookiesCached += OnPlayerCookiesCached;
+
+        if (hotReload && ClientprefsApi != null)
+        {
+            OnClientprefDatabaseReady();
+            foreach (CCSPlayerController player in Utilities.GetPlayers().Where(p => !p.IsBot))
+            {
+                OnPlayerCookiesCached(player);
+            }
+        }
     }
 
     public void OnClientprefDatabaseReady()
@@ -226,6 +237,27 @@ public class StrafeHUD : BasePlugin
         {
             Logger.LogError("[StrafeHUD] Failed to register player cookie ljpb!");
             return;
+        }
+    }
+
+    public void OnPlayerCookiesCached(CCSPlayerController player)
+    {
+        if (ClientprefsApi is null) return;
+
+        playerCookies[player.Slot] = new Dictionary<string, string>();
+
+        playerCookies[player.Slot]["strafestats_enabled"] = ClientprefsApi.GetPlayerCookie(player, g_iCookieID);
+        playerCookies[player.Slot]["strafehud_enabled"] = ClientprefsApi.GetPlayerCookie(player, g_iCookieID2);
+        playerCookies[player.Slot]["ljpb"] = ClientprefsApi.GetPlayerCookie(player, g_iCookieID3);
+        
+        if (playerCookies[player.Slot]["strafestats_enabled"].Equals("true"))
+        {
+            Globals.playerStats[player.Slot].StrafeStatsEnabled = true;
+        }
+
+        if (playerCookies[player.Slot]["strafehud_enabled"].Equals("true"))
+        {
+            Globals.playerStats[player.Slot].StrafeHudEnabled = true;
         }
     }
 
@@ -502,7 +534,7 @@ public class StrafeHUD : BasePlugin
         }
     }
 
-    public void OnPlayerJumped(CCSPlayerController? player)
+    public void OnPlayerJumped(CCSPlayerController? player, JumpType jumpType)
     {
         if (Globals.playerStats[player!.Slot].LeftText is not null && Globals.playerStats[player.Slot].RightText is not null && Globals.playerStats[player.Slot].MouseText is not null)
         {
@@ -542,8 +574,8 @@ public class StrafeHUD : BasePlugin
             return;
         }
 
-        float roughOffset = Globals.playerStats[player.Slot].Position.Z -
-                            Globals.playerStats[player.Slot].JumpPosition.Z;
+        float roughOffset = Math.Abs(Globals.playerStats[player.Slot].Position.Z -
+                            Globals.playerStats[player.Slot].JumpPosition.Z);
         if (roughOffset > 2.0)
         {
             Utils.ResetJump(player);
@@ -603,16 +635,20 @@ public class StrafeHUD : BasePlugin
 
         try
         {
-            string cookieValue = ClientprefsApi.GetPlayerCookie(player, g_iCookieID3);
+            string cookieValue = playerCookies[player.Slot]["ljpb"];
             double previousPb = (string.IsNullOrEmpty(cookieValue)) ? 0.0 : double.Parse(cookieValue);
             if (Globals.playerStats[player.Slot].JumpDistance > previousPb)
             {
                 ClientprefsApi.SetPlayerCookie(player, g_iCookieID3,
                     Globals.playerStats[player.Slot].JumpDistance.ToString());
+                playerCookies[player.Slot]["ljpb"] = Globals.playerStats[player.Slot].JumpDistance.ToString();
+                Server.NextFrame(() => player.PrintToChat($"[StrafeHUD] New LJ PB!: {playerCookies[player.Slot]["ljpb"]}"));
             }
         }
         catch (Exception ex)
         {
+            Logger.LogError(
+                $"Cookie value that caused error: '{ClientprefsApi.GetPlayerCookie(player, g_iCookieID3)}'");
             Logger.LogError(ex.Message);
         }
 
@@ -684,25 +720,25 @@ public class StrafeHUD : BasePlugin
         Vector jumpOrigin = Globals.playerStats[player.Slot].JumpPosition;
         Vector landOrigin = Globals.playerStats[player.Slot].LandPosition;
 
-        jumpOrigin.Z -= 2;
-        landOrigin.Z -= 2;
-
         landOrigin[blockAxis] -= blockDir * 16;
 
         var tempPos = landOrigin;
         tempPos[blockAxis] += (jumpOrigin[blockAxis] - landOrigin[blockAxis]) / 2;
 
-        Vector jumpEdge = Utils.TraceBlock(tempPos, jumpOrigin);
+        Vector jumpEdge = Utils.TraceBlock(tempPos, blockAxis, blockDir);
+        Globals.playerStats[player.Slot].JumpEdge = Math.Abs(jumpEdge[blockAxis] - Globals.playerStats[player.Slot].JumpPosition[blockAxis]);
 
         tempPos = jumpOrigin;
         tempPos[blockAxis] += (landOrigin[blockAxis] - jumpOrigin[blockAxis]) / 2;
 
-        Vector landEdge = Utils.TraceBlock(tempPos, landOrigin);
+        Vector landEdge = Utils.TraceBlock(tempPos, blockAxis, blockDir);
+        Globals.playerStats[player.Slot].JumpLandEdge = Math.Abs(landEdge[blockAxis] - Globals.playerStats[player.Slot].LandPosition[blockAxis]);
+        
 
         if (landEdge != Vector.Zero)
         {
             Globals.playerStats[player.Slot].JumpBlockDistance =
-                Math.Abs(landEdge[blockAxis] - jumpEdge[blockAxis]) + 32;
+                Math.Abs(landEdge[blockAxis]) - Math.Abs(jumpEdge[blockAxis]) + 32;
             Globals.playerStats[player.Slot].JumpLandEdge =
                 (landEdge[blockAxis] - Globals.playerStats[player.Slot].LandPosition[blockAxis]) * blockDir;
         }
@@ -952,6 +988,16 @@ public class StrafeHUD : BasePlugin
         OVERLAP_RIGHT,     // A + D are pressed, but sidemove is more than 0
         NONE_RIGHT         // A + D are not pressed and sidemove is more than 0
     }
+
+    public enum JumpType
+    {
+        NONE,
+        LJ,
+        WJ,
+        LAJ,
+        BH,
+        CBH
+    }
     
     public string[] StrafeChars =
     [
@@ -988,6 +1034,7 @@ public class StrafeHUD : BasePlugin
         if (ClientprefsApi is null) return;
 
         ClientprefsApi.OnDatabaseLoaded -= OnClientprefDatabaseReady;
+        ClientprefsApi.OnPlayerCookiesCached -= OnPlayerCookiesCached;
 
         Logger.LogInformation("[StrafeHUD] Plugin unloaded.");
     }
