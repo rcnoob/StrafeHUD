@@ -15,13 +15,13 @@ namespace StrafeHUD;
 public class StrafeHUD : BasePlugin
 {
     public override string ModuleName => "StrafeHUD";
-    public override string ModuleVersion => $"1.0.3";
+    public override string ModuleVersion => $"1.0.4";
     public override string ModuleAuthor => "rc https://github.com/rcnoob/";
     public override string ModuleDescription => "A CS2 StrafeHUD plugin";
     
     private readonly PluginCapability<IClientprefsApi> g_PluginCapability = new("Clientprefs");
     private IClientprefsApi ClientprefsApi;
-    private int g_iCookieID = -1, g_iCookieID2 = -1, g_iCookieID3 = -1;
+    private int g_iCookieID = -1, g_iCookieID2 = -1;
     private Dictionary<int, Dictionary<string, string>> playerCookies = new();
     
     public required IRunCommand RunCommand;
@@ -180,7 +180,7 @@ public class StrafeHUD : BasePlugin
             player.PrintToChat($"[StrafeHUD] Strafe hud: {(Globals.playerStats[player.Slot].StrafeHudEnabled ? "Enabled" : "Disabled")}");
         });
         
-        AddCommand("ljpb", "Display longjump pb", (player, info) =>
+        /*AddCommand("ljpb", "Display longjump pb", (player, info) =>
         {
             if (player == null || player.IsBot) return;
             if (String.IsNullOrEmpty(playerCookies[player.Slot]["ljpb"]))
@@ -189,7 +189,7 @@ public class StrafeHUD : BasePlugin
                 return;
             }
             player.PrintToChat($"[StrafeHUD] LJPB: {playerCookies[player.Slot]["ljpb"]}");
-        });
+        });*/
 
         Logger.LogInformation("[StrafeHUD] Loaded!");
     }
@@ -219,7 +219,7 @@ public class StrafeHUD : BasePlugin
 
         g_iCookieID = ClientprefsApi.RegPlayerCookie("strafestats_enabled", "Player has enabled strafestats");
         g_iCookieID2 = ClientprefsApi.RegPlayerCookie("strafehud_enabled", "Player has enabled strafehud");
-        g_iCookieID3 = ClientprefsApi.RegPlayerCookie("ljpb", "Longjump personal best");
+        //g_iCookieID3 = ClientprefsApi.RegPlayerCookie("ljpb", "Longjump personal best");
         
         if (g_iCookieID == -1)
         {
@@ -233,11 +233,11 @@ public class StrafeHUD : BasePlugin
             return;
         }
         
-        if (g_iCookieID3 == -1)
+        /*if (g_iCookieID3 == -1)
         {
             Logger.LogError("[StrafeHUD] Failed to register player cookie ljpb!");
             return;
-        }
+        }*/
     }
 
     public void OnPlayerCookiesCached(CCSPlayerController player)
@@ -248,7 +248,7 @@ public class StrafeHUD : BasePlugin
 
         playerCookies[player.Slot]["strafestats_enabled"] = ClientprefsApi.GetPlayerCookie(player, g_iCookieID);
         playerCookies[player.Slot]["strafehud_enabled"] = ClientprefsApi.GetPlayerCookie(player, g_iCookieID2);
-        playerCookies[player.Slot]["ljpb"] = ClientprefsApi.GetPlayerCookie(player, g_iCookieID3);
+        //playerCookies[player.Slot]["ljpb"] = ClientprefsApi.GetPlayerCookie(player, g_iCookieID3);
         
         if (playerCookies[player.Slot]["strafestats_enabled"].Equals("true"))
         {
@@ -633,7 +633,7 @@ public class StrafeHUD : BasePlugin
         Globals.playerStats[player.Slot].JumpDistance += 32;
 
 
-        try
+        /*try
         {
             string cookieValue = playerCookies[player.Slot]["ljpb"];
             double previousPb = (string.IsNullOrEmpty(cookieValue)) ? 0.0 : double.Parse(cookieValue);
@@ -650,7 +650,7 @@ public class StrafeHUD : BasePlugin
             Logger.LogError(
                 $"Cookie value that caused error: '{ClientprefsApi.GetPlayerCookie(player, g_iCookieID3)}'");
             Logger.LogError(ex.Message);
-        }
+        }*/
 
         FinishTrackingJump(player);
         PrintStats(player);
@@ -708,44 +708,31 @@ public class StrafeHUD : BasePlugin
         Globals.playerStats[player.Slot].JumpLandEdge = -9999.9f;
         Globals.playerStats[player.Slot].JumpEdge = -1;
 
-        int blockAxis = Math.Abs(Globals.playerStats[player.Slot].LandPosition.Y -
-                                 Globals.playerStats[player.Slot].JumpPosition.Y) >
-                        Math.Abs(Globals.playerStats[player.Slot].LandPosition.X -
-                                 Globals.playerStats[player.Slot].JumpPosition.X)
-            ? 1
-            : 0;
-        int blockDir = (int)Utils.FloatSign(Globals.playerStats[player.Slot].JumpPosition[blockAxis] -
-                                            Globals.playerStats[player.Slot].LandPosition[blockAxis]);
-
         Vector jumpOrigin = Globals.playerStats[player.Slot].JumpPosition;
         Vector landOrigin = Globals.playerStats[player.Slot].LandPosition;
 
+        int blockAxis = Math.Abs(landOrigin.Y - jumpOrigin.Y) > 
+                        Math.Abs(landOrigin.X - jumpOrigin.X) ? 1 : 0;
+        int blockDir = (int)Utils.FloatSign(jumpOrigin[blockAxis] - landOrigin[blockAxis]);
+
         landOrigin[blockAxis] -= blockDir * 16;
 
-        var tempPos = landOrigin;
-        tempPos[blockAxis] += (jumpOrigin[blockAxis] - landOrigin[blockAxis]) / 2;
+        Vector jumpEdge = Utils.TraceBlock(jumpOrigin, landOrigin);
+        Vector landEdge = Utils.TraceBlock(landOrigin, jumpOrigin);
 
-        Vector jumpEdge = Utils.TraceBlock(tempPos, blockAxis, blockDir);
-        Globals.playerStats[player.Slot].JumpEdge = Math.Abs(jumpEdge[blockAxis] - Globals.playerStats[player.Slot].JumpPosition[blockAxis]);
-
-        tempPos = jumpOrigin;
-        tempPos[blockAxis] += (landOrigin[blockAxis] - jumpOrigin[blockAxis]) / 2;
-
-        Vector landEdge = Utils.TraceBlock(tempPos, blockAxis, blockDir);
-        Globals.playerStats[player.Slot].JumpLandEdge = Math.Abs(landEdge[blockAxis] - Globals.playerStats[player.Slot].LandPosition[blockAxis]);
-        
-
-        if (landEdge != Vector.Zero)
+        if (Math.Abs(jumpEdge[blockAxis] - jumpOrigin[blockAxis]) > 1)
         {
-            Globals.playerStats[player.Slot].JumpBlockDistance =
-                Math.Abs(landEdge[blockAxis]) - Math.Abs(jumpEdge[blockAxis]) + 32;
-            Globals.playerStats[player.Slot].JumpLandEdge =
-                (landEdge[blockAxis] - Globals.playerStats[player.Slot].LandPosition[blockAxis]) * blockDir;
+            float blockDist = Math.Abs(landEdge[blockAxis] - jumpEdge[blockAxis]);
+            float edgeDist = blockDist - Math.Abs(jumpOrigin[blockAxis] - jumpEdge[blockAxis]);
+            Globals.playerStats[player.Slot].JumpEdge = edgeDist;
         }
 
-        if (jumpEdge[blockAxis] - tempPos[blockAxis] != 0)
+        if (Math.Abs(landEdge[blockAxis] - landOrigin[blockAxis]) > 1)
         {
-            Globals.playerStats[player.Slot].JumpEdge = Math.Abs(jumpOrigin[blockAxis] - jumpEdge[blockAxis]);
+            float blockDist = Math.Abs(landEdge[blockAxis] - jumpEdge[blockAxis]);
+            float landEdgeDist = Math.Abs(blockDist - Math.Abs(landOrigin[blockAxis] - landEdge[blockAxis]));
+            Globals.playerStats[player.Slot].JumpLandEdge = landEdgeDist;
+            Globals.playerStats[player.Slot].JumpBlockDistance = blockDist;
         }
 
         // jumpoff angles
@@ -791,7 +778,7 @@ public class StrafeHUD : BasePlugin
 
         string block = "";
         bool hasBlock = false;
-        if (Globals.playerStats[player.Slot].JumpBlockDistance > 200)
+        if (Globals.playerStats[player.Slot].JumpBlockDistance >= 200)
         {
             block = $"Block: {(double)Globals.playerStats[player.Slot].JumpBlockDistance}";
             hasBlock = true;

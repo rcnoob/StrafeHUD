@@ -1,9 +1,10 @@
+using System.Drawing;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Utils;
-using Microsoft.Extensions.Logging;
 using Vector = CounterStrikeSharp.API.Modules.Utils.Vector;
 
 namespace StrafeHUD.Extensions;
@@ -31,46 +32,108 @@ public class RayTrace
         ? "48 8D 05 ? ? ? ? F3 0F 58 8D ? ? ? ? 31 FF"
         : "48 8B 0D ? ? ? ? 48 8D 45 ? 48 89 44 24 ? 4C 8D 44 24 ? C7 44 24 ? ? ? ? ? 48 8D 54 24 ? 4C 8B CB");
 
-    public static unsafe Vector? TraceRay(Vector origin, Vector direction, ulong mask) 
+    static public CBeam? DrawLaserBetween(Vector startPos, Vector endPos, Color? color = null, float duration = 1, float width = 2)
+        {
+            CBeam? beam = Utilities.CreateEntityByName<CBeam>("beam");
+            if (beam == null) return null;
+
+            beam.Render = color ?? Color.Red;
+            beam.Width = width;
+
+            beam.Teleport(startPos, new QAngle(), new Vector());
+            beam.EndPos.X = endPos.X;
+            beam.EndPos.Y = endPos.Y;
+            beam.EndPos.Z = endPos.Z;
+            beam.DispatchSpawn();
+            return beam;
+        }
+    
+    public static unsafe Vector? TraceShape(Vector _origin, QAngle _viewangles, bool drawResult = false, bool fromPlayer = false)
+    {
+        var _forward = new Vector();
+
+        NativeAPI.AngleVectors(_viewangles.Handle, _forward.Handle, 0, 0);
+        var _endOrigin = new Vector(_origin.X + _forward.X * 8192, _origin.Y + _forward.Y * 8192, _origin.Z + _forward.Z * 8192);
+
+        var d = 50;
+
+        if (fromPlayer)
+        {
+            _origin.X += _forward.X * d;
+            _origin.Y += _forward.Y * d;
+            _origin.Z += _forward.Z * d + 64;
+        }
+
+        if (_origin == null)
+        {
+            throw new ArgumentNullException(nameof(_origin));
+        }
+        if (_endOrigin == null)
+        {
+            throw new ArgumentNullException(nameof(_endOrigin));
+        }
+
+        return TraceShape(_origin, _endOrigin, drawResult) ?? throw new InvalidOperationException("TraceShape returned null.");
+    }
+
+    public static unsafe Vector? TraceShape(Vector? _origin, Vector _endOrigin, bool drawResult = false)
     {
         var _gameTraceManagerAddress = Address.GetAbsoluteAddress(GameTraceManager, 3, 7);
-        if (_gameTraceManagerAddress is 0) return null;
-    
+
         _traceShape = Marshal.GetDelegateForFunctionPointer<TraceShapeDelegate>(TraceFunc);
-        if (_traceShape is null) return null;
 
-        // Calculate end point directly using normalized direction
-        var endPoint = new Vector(
-            origin.X + direction.X * 8192,
-            origin.Y + direction.Y * 8192,
-            origin.Z + direction.Z * 8192
-        );
-    
-        var trace = stackalloc GameTrace[1];
+        var _trace = stackalloc GameTrace[1];
 
-        var result = _traceShape(
-            *(nint*)_gameTraceManagerAddress, 
-            origin.Handle, 
-            endPoint.Handle, 
-            0, 
-            mask, 
-            4, 
-            trace
-        );
-    
-        if (result is true)
+        ulong mask = 12289UL;
+        // var mask = 0xFFFFFFFF;
+        if (_traceShape == null)
         {
-            return new Vector(trace->EndPos.X, trace->EndPos.Y, trace->EndPos.Z);
+            throw new InvalidOperationException("TraceShape delegate is not initialized.");
+        }
+
+        if (_gameTraceManagerAddress == IntPtr.Zero)
+        {
+            throw new InvalidOperationException("GameTraceManager address is null.");
+        }
+
+        if (_origin == null)
+        {
+            throw new ArgumentNullException(nameof(_origin));
+        }
+
+        var result = _traceShape(*(nint*)_gameTraceManagerAddress, _origin.Handle, _endOrigin.Handle, 0, mask, 4, _trace);
+
+        var endPos = new Vector(_trace->EndPos.X, _trace->EndPos.Y, _trace->EndPos.Z);
+
+        if (drawResult)
+        {
+            Color color = Color.FromName("Green");
+            if (result)
+            {
+                color = Color.FromName("Red");
+            }
+
+            DrawLaserBetween(_origin, endPos, color, 5);
+        }
+
+        if (result)
+        {
+            return endPos;
         }
 
         return null;
     }
 }
-    
+
 internal static class Address
 {
     static unsafe public nint GetAbsoluteAddress(nint addr, nint offset, int size)
     {
+        if (addr == IntPtr.Zero)
+        {
+            throw new Exception("Failed to find RayTrace signature.");
+        }
+
         int code = *(int*)(addr + offset);
         return addr + code + size;
     }
@@ -80,7 +143,7 @@ internal static class Address
         return GetAbsoluteAddress(a, 1, 5);
     }
 }
- 
+
 [StructLayout(LayoutKind.Explicit, Size = 0x35)]
 public unsafe struct Ray
 {
@@ -111,6 +174,30 @@ public unsafe struct GameTrace
     [FieldOffset(0x9C)] public Vector3 Position;
     [FieldOffset(0xAC)] public float Fraction;
     [FieldOffset(0xB6)] public bool AllSolid;
+}
+
+[StructLayout(LayoutKind.Explicit, Size = 0x3a)]
+public unsafe struct TraceFilter
+{
+    [FieldOffset(0)] public void* Vtable;
+    [FieldOffset(0x8)] public ulong Mask;
+    [FieldOffset(0x20)] public fixed uint SkipHandles[4];
+    [FieldOffset(0x30)] public fixed ushort arrCollisions[2];
+    [FieldOffset(0x34)] public uint Unk1;
+    [FieldOffset(0x38)] public byte Unk2;
+    [FieldOffset(0x39)] public byte Unk3;
+}
+
+public unsafe struct TraceFilterV2
+{
+    public ulong Mask;
+    public fixed ulong V1[2];
+    public fixed uint SkipHandles[4];
+    public fixed ushort arrCollisions[2];
+    public short V2;
+    public byte V3;
+    public byte V4;
+    public byte V5;
 }
 
 public struct Masks

@@ -136,11 +136,9 @@ public class Utils
     {
         float length = (float)Math.Sqrt(vec.X * vec.X + vec.Y * vec.Y + vec.Z * vec.Z);
 
-        // Avoid division by zero
         if (length == 0)
             return Vector.Zero;
 
-        // Divide each component by the length
         return new Vector(
             vec.X / length,
             vec.Y / length,
@@ -148,38 +146,68 @@ public class Utils
         );
     }
 
-    public static Vector TraceGround(Vector pos)
+    public static Vector TraceGround(Vector startpos)
     {
-        Vector startPos = pos;
-        Vector direction = new Vector(0, 0, -1);
-
-        Vector? result = RayTrace.TraceRay(startPos, direction, Masks.MASK_SOLID);
+        Vector endpos = startpos;
+        endpos.Z -= 2;
+        
+        Vector? result = RayTrace.TraceShape(startpos, endpos, false);
 
         if (result is null || result == Vector.Zero)
-            return startPos;
+            return startpos;
 
         return result;
     }
 
-    public static Vector TraceBlock(Vector jumpPos, int blockAxis, int blockDir)
+    public static Vector TraceBlock(Vector jumpPos, Vector endpos)
     {
-        Vector startPos = new Vector(jumpPos.X, jumpPos.Y, jumpPos.Z - 2);
-    
-        Vector direction = new Vector(
-            blockAxis == 0 ? blockDir : 0,
-            blockAxis == 1 ? blockDir : 0,
-            0 
-        );
-        
-        Vector? result = RayTrace.TraceRay(startPos, direction, Masks.MASK_SOLID);
+       Vector centerStart = new Vector(jumpPos.X, jumpPos.Y, jumpPos.Z - 1);
+       Vector centerEnd = new Vector(endpos.X, endpos.Y, endpos.Z - 1);
+       Vector? centerResult = RayTrace.TraceShape(centerStart, centerEnd, false);
+       
+       Vector leftStart = new Vector(jumpPos.X - 16, jumpPos.Y, jumpPos.Z - 1);
+       Vector leftEnd = new Vector(endpos.X - 16, endpos.Y, endpos.Z - 1);
+       Vector? leftResult = RayTrace.TraceShape(leftStart, leftEnd, false);
 
-        if (result is null)
-            return jumpPos;
+       Vector rightStart = new Vector(jumpPos.X + 16, jumpPos.Y, jumpPos.Z - 1);
+       Vector rightEnd = new Vector(endpos.X + 16, endpos.Y, endpos.Z - 1);
+       Vector? rightResult = RayTrace.TraceShape(rightStart, rightEnd, false);
 
-        // The edge distance will be the distance between jump position and where we hit
-        float edgeDist = Math.Abs(result[blockAxis] - jumpPos[blockAxis]);
-    
-        return result;
+       Vector frontStart = new Vector(jumpPos.X, jumpPos.Y - 16, jumpPos.Z - 1);
+       Vector frontEnd = new Vector(endpos.X, endpos.Y - 16, endpos.Z - 1);
+       Vector? frontResult = RayTrace.TraceShape(frontStart, frontEnd, false);
+
+       Vector backStart = new Vector(jumpPos.X, jumpPos.Y + 16, jumpPos.Z - 1);
+       Vector backEnd = new Vector(endpos.X, endpos.Y + 16, endpos.Z - 1);
+       Vector? backResult = RayTrace.TraceShape(backStart, backEnd, false);
+
+       float closestDist = float.MaxValue;
+       Vector closestHit = jumpPos;
+
+       void CheckTrace(Vector? res)
+       {
+           if (res != null)
+           {
+               float dist = (float)Math.Sqrt(
+                   Math.Pow(res.X - jumpPos.X, 2) + 
+                   Math.Pow(res.Y - jumpPos.Y, 2) + 
+                   Math.Pow(res.Z - jumpPos.Z, 2));
+               
+               if (dist < closestDist)
+               {
+                   closestDist = dist;
+                   closestHit = res;
+               }
+           }
+       }
+
+       CheckTrace(centerResult);
+       CheckTrace(leftResult);
+       CheckTrace(rightResult);
+       CheckTrace(frontResult);
+       CheckTrace(backResult);
+
+       return closestHit ?? jumpPos;
     }
 
     public static Vector GetRealLandingOrigin(float landGroundZ, Vector origin, Vector velocity)
