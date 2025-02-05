@@ -7,8 +7,6 @@ For saving player data, you must install [Clientprefs](https://github.com/Cruze0
 # How to use?
 Type !strafestats (then !strafehud for hud overlay)
 
-See your personal best with !ljpb
-
 # What do the symbols mean?
 ## In console stats:
 
