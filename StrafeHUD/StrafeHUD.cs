@@ -15,7 +15,7 @@ namespace StrafeHUD;
 public class StrafeHUD : BasePlugin
 {
     public override string ModuleName => "StrafeHUD";
-    public override string ModuleVersion => $"1.0.4";
+    public override string ModuleVersion => $"1.0.5";
     public override string ModuleAuthor => "rc https://github.com/rcnoob/";
     public override string ModuleDescription => "A CS2 StrafeHUD plugin";
     
@@ -118,23 +118,22 @@ public class StrafeHUD : BasePlugin
 
                 foreach (var target in Utilities.FindAllEntitiesByDesignerName<CPointWorldText>("point_worldtext"))
                 {
-                    if (target == null)
+                    if (!target.IsValid)
                         continue;
                     
                     if (!target.FontName.Equals("Consolas"))
                         continue;
 
-                    if (Globals.playerStats[player.Slot].LeftText is null ||
-                        Globals.playerStats[player.Slot].RightText is null ||
-                        Globals.playerStats[player.Slot].MouseText is null)
+                    bool isPlayerEntity = false;
+            
+                    if (Globals.playerStats.TryGetValue(player.Slot, out var playerStat))
                     {
-                        info.TransmitEntities.Remove(target);
-                        continue;
+                        isPlayerEntity = target.EntityHandle.Equals(playerStat.LeftText?.EntityHandle) ||
+                                         target.EntityHandle.Equals(playerStat.RightText?.EntityHandle) ||
+                                         target.EntityHandle.Equals(playerStat.MouseText?.EntityHandle);
                     }
-
-                    if (!target.EntityHandle.Equals(Globals.playerStats[player.Slot].LeftText!.EntityHandle) &&
-                        !target.EntityHandle.Equals(Globals.playerStats[player.Slot].RightText!.EntityHandle) &&
-                        !target.EntityHandle.Equals(Globals.playerStats[player.Slot].MouseText!.EntityHandle))
+                    
+                    if (!isPlayerEntity)
                     {
                         info.TransmitEntities.Remove(target);
                     }

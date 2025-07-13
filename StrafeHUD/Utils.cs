@@ -27,8 +27,15 @@ public class Utils
 
     public static void OnPlayerDisconnect(CCSPlayerController? player)
     {
-        if (player == null || player.IsBot)
+        if (!Globals.connectedPlayers.ContainsKey(player.Slot))
             return;
+        
+        if (Globals.playerStats.TryGetValue(player.Slot, out var playerStat))
+        {
+            playerStat.LeftText?.Remove();
+            playerStat.RightText?.Remove(); 
+            playerStat.MouseText?.Remove();
+        }
 
         Globals.playerStats[player.Slot] = new PlayerStats();
         Globals.playerStats.Remove(player.Slot);
