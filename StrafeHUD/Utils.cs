@@ -78,6 +78,8 @@ public class Utils
         Globals.playerStats[player.Slot].JumpDeadair = 0;
         Globals.playerStats[player.Slot].JumpAirpath = 0;
         Globals.playerStats[player.Slot].JumpDistance = 0;
+        Globals.playerStats[player.Slot].SideMove = 0;
+        Globals.playerStats[player.Slot].LastSideMove = 0;
 
         Globals.playerStats[player.Slot].StrafeCount = 0;
         for (int i = 0; i < 32; i++)
@@ -93,6 +95,7 @@ public class Utils
             Globals.playerStats[player.Slot].StrafeAvgEfficiency[i] = 0;
             Globals.playerStats[player.Slot].StrafeAvgEfficiencyCount[i] = 0;
             Globals.playerStats[player.Slot].StrafeMaxEfficiency[i] = 0;
+            Globals.playerStats[player.Slot].StrafeWidths[i] = 0;
         }
     }
 

@@ -15,13 +15,13 @@ namespace StrafeHUD;
 public class StrafeHUD : BasePlugin
 {
     public override string ModuleName => "StrafeHUD";
-    public override string ModuleVersion => $"1.0.5";
+    public override string ModuleVersion => $"1.0.6";
     public override string ModuleAuthor => "rc https://github.com/rcnoob/";
     public override string ModuleDescription => "A CS2 StrafeHUD plugin";
     
     private readonly PluginCapability<IClientprefsApi> g_PluginCapability = new("Clientprefs");
     private IClientprefsApi ClientprefsApi;
-    private int g_iCookieID = -1, g_iCookieID2 = -1;
+    private int g_iCookieID = -1, g_iCookieID2 = -1, g_iCookieID3 = -1;
     private Dictionary<int, Dictionary<string, string>> playerCookies = new();
     
     public required IRunCommand RunCommand;
@@ -177,6 +177,21 @@ public class StrafeHUD : BasePlugin
                 ClientprefsApi.SetPlayerCookie(player, g_iCookieID2, "false"); 
             }
             player.PrintToChat($"[StrafeHUD] Strafe hud: {(Globals.playerStats[player.Slot].StrafeHudEnabled ? "Enabled" : "Disabled")}");
+        });
+        
+        AddCommand("hudcolor", "Change hud color", (player, info) =>
+        {
+            if (player == null || player.IsBot) return;
+            
+            string arg = info.ArgByIndex(1);
+            if (arg is null || arg == "")
+            {
+                player.PrintToChat("[StrafeHUD] Please provide a valid color");
+                return;
+            }
+            
+            Globals.playerStats[player.Slot].playerColor = arg.ToLower();
+            ClientprefsApi.SetPlayerCookie(player, g_iCookieID3, arg.ToLower()); 
         });
         
         /*AddCommand("ljpb", "Display longjump pb", (player, info) =>
@@ -437,7 +452,7 @@ public class StrafeHUD : BasePlugin
                 if (Globals.playerStats[player.Slot].StrafeCount > 0)
                 {
                     Globals.playerStats[player.Slot].StrafeWidths[Globals.playerStats[player.Slot].StrafeCount-1] = 
-                        Utils.GetStrafeWidth(Globals.playerStats[player.Slot].StrafeAngle, Globals.playerStats[player.Slot].Angles);
+                        Utils.GetStrafeWidth(Globals.playerStats[player.Slot].LastStrafeAngle, Globals.playerStats[player.Slot].Angles);
                 }
                 Globals.playerStats[player.Slot].StrafeCount++;
                 Globals.playerStats[player.Slot].LastStrafeAngle = Globals.playerStats[player.Slot].StrafeAngle;
@@ -951,9 +966,9 @@ public class StrafeHUD : BasePlugin
             {
                 if (Globals.playerStats[player.Slot].StrafeHudEnabled)
                 {
-                    Globals.playerStats[player.Slot].LeftText = Utils.CreateLeftStrafeHud(player, hudStrafeLeftBuilder.ToString(), 30, Color.Black, "Consolas");
-                    Globals.playerStats[player.Slot].RightText = Utils.CreateRightStrafeHud(player, hudStrafeRightBuilder.ToString(), 30, Color.Black, "Consolas");
-                    Globals.playerStats[player.Slot].MouseText = Utils.CreateMouseHud(player, hudMouseBuilder.ToString(), 30, Color.Black, "Consolas");
+                    Globals.playerStats[player.Slot].LeftText = Utils.CreateLeftStrafeHud(player, hudStrafeLeftBuilder.ToString(), 30, Color.FromName(Globals.playerStats[player.Slot].playerColor), "Consolas");
+                    Globals.playerStats[player.Slot].RightText = Utils.CreateRightStrafeHud(player, hudStrafeRightBuilder.ToString(), 30, Color.FromName(Globals.playerStats[player.Slot].playerColor), "Consolas");
+                    Globals.playerStats[player.Slot].MouseText = Utils.CreateMouseHud(player, hudMouseBuilder.ToString(), 30, Color.FromName(Globals.playerStats[player.Slot].playerColor), "Consolas");
                 }
                 player.PrintToConsole($"\nStrafe movement:\nL: {strafeLeftBuilder}\nR: {strafeRightBuilder}" +
                                       $"\nMouse movement:\nL: {mouseLeftBuilder}\nR: {mouseRightBuilder}");

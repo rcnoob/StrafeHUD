@@ -1,3 +1,4 @@
+using System.Drawing;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
@@ -85,4 +86,6 @@ public class PlayerStats
     
     public StrafeHUD.StrafeType[] StrafeGraph { get; set; } = new StrafeHUD.StrafeType[150];
     public float[] MouseGraph { get; set; } = new float[150];
+    
+    public string playerColor { get; set; } = "black";
 }
