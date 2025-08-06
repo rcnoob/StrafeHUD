@@ -2,8 +2,8 @@
     "RunCommand": {
       "signatures": {
         "library": "server",
-        "windows": "\\x48\\x89\\x5C\\x24\\x18\\x48\\x89\\x6C\\x24\\x20\\x57\\x48\\x83\\xEC\\x20\\x48\\x8B\\xDA",
-        "linux": "\\x55\\x48\\x89\\xE5\\x41\\x55\\x49\\x89\\xF5\\x41\\x54\\x49\\x89\\xFC\\xE8\\x2A\\x2A\\x2A\\x2A\\x48\\x85\\xC0\\x74\\x30"
+        "windows": "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 20",
+        "linux": "55 48 89 E5 41 57 49 89 FF 41 56 41 55 49 89 F5 41 54 53 48 83 EC ?? 48 8B 7F"
         }
     }
 }

@@ -15,7 +15,7 @@ namespace StrafeHUD;
 public class StrafeHUD : BasePlugin
 {
     public override string ModuleName => "StrafeHUD";
-    public override string ModuleVersion => $"1.0.6";
+    public override string ModuleVersion => $"1.0.7";
     public override string ModuleAuthor => "rc https://github.com/rcnoob/";
     public override string ModuleDescription => "A CS2 StrafeHUD plugin";
     
@@ -158,7 +158,7 @@ public class StrafeHUD : BasePlugin
             player.PrintToChat($"[StrafeHUD] Strafe stats: {(Globals.playerStats[player.Slot].StrafeStatsEnabled ? "Enabled" : "Disabled")}");
         });
         
-        AddCommand("strafehud", "Enable/disable hud stats", (player, info) =>
+        /*AddCommand("strafehud", "Enable/disable hud stats", (player, info) =>
         {
             if (player == null || player.IsBot) return;
 
@@ -232,7 +232,7 @@ public class StrafeHUD : BasePlugin
         if (ClientprefsApi is null) return;
 
         g_iCookieID = ClientprefsApi.RegPlayerCookie("strafestats_enabled", "Player has enabled strafestats");
-        g_iCookieID2 = ClientprefsApi.RegPlayerCookie("strafehud_enabled", "Player has enabled strafehud");
+        //g_iCookieID2 = ClientprefsApi.RegPlayerCookie("strafehud_enabled", "Player has enabled strafehud");
         //g_iCookieID3 = ClientprefsApi.RegPlayerCookie("ljpb", "Longjump personal best");
         
         if (g_iCookieID == -1)
@@ -241,11 +241,11 @@ public class StrafeHUD : BasePlugin
             return;
         }
         
-        if (g_iCookieID2 == -1)
+        /*if (g_iCookieID2 == -1)
         {
             Logger.LogError("[StrafeHUD] Failed to register player cookie strafehud_enabled!");
             return;
-        }
+        }*/
         
         /*if (g_iCookieID3 == -1)
         {
@@ -261,7 +261,7 @@ public class StrafeHUD : BasePlugin
         playerCookies[player.Slot] = new Dictionary<string, string>();
 
         playerCookies[player.Slot]["strafestats_enabled"] = ClientprefsApi.GetPlayerCookie(player, g_iCookieID);
-        playerCookies[player.Slot]["strafehud_enabled"] = ClientprefsApi.GetPlayerCookie(player, g_iCookieID2);
+        //playerCookies[player.Slot]["strafehud_enabled"] = ClientprefsApi.GetPlayerCookie(player, g_iCookieID2);
         //playerCookies[player.Slot]["ljpb"] = ClientprefsApi.GetPlayerCookie(player, g_iCookieID3);
         
         if (playerCookies[player.Slot]["strafestats_enabled"].Equals("true"))
@@ -269,10 +269,10 @@ public class StrafeHUD : BasePlugin
             Globals.playerStats[player.Slot].StrafeStatsEnabled = true;
         }
 
-        if (playerCookies[player.Slot]["strafehud_enabled"].Equals("true"))
+        /*if (playerCookies[player.Slot]["strafehud_enabled"].Equals("true"))
         {
             Globals.playerStats[player.Slot].StrafeHudEnabled = true;
-        }
+        }*/
     }
 
     private HookResult OnRunCommand(DynamicHook h)
@@ -964,12 +964,12 @@ public class StrafeHUD : BasePlugin
             bool isLastTick = (i == Math.Min(Globals.playerStats[player.Slot].JumpAirtime - 1, 149));
             if (isLastTick)
             {
-                if (Globals.playerStats[player.Slot].StrafeHudEnabled)
+                /*if (Globals.playerStats[player.Slot].StrafeHudEnabled)
                 {
                     Globals.playerStats[player.Slot].LeftText = Utils.CreateLeftStrafeHud(player, hudStrafeLeftBuilder.ToString(), 30, Color.FromName(Globals.playerStats[player.Slot].playerColor), "Consolas");
                     Globals.playerStats[player.Slot].RightText = Utils.CreateRightStrafeHud(player, hudStrafeRightBuilder.ToString(), 30, Color.FromName(Globals.playerStats[player.Slot].playerColor), "Consolas");
                     Globals.playerStats[player.Slot].MouseText = Utils.CreateMouseHud(player, hudMouseBuilder.ToString(), 30, Color.FromName(Globals.playerStats[player.Slot].playerColor), "Consolas");
-                }
+                }*/
                 player.PrintToConsole($"\nStrafe movement:\nL: {strafeLeftBuilder}\nR: {strafeRightBuilder}" +
                                       $"\nMouse movement:\nL: {mouseLeftBuilder}\nR: {mouseRightBuilder}");
             }
